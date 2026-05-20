@@ -1,3 +1,17 @@
+# [2.0.0](https://github.com/wyre-technology/node-superops/compare/v1.0.5...v2.0.0) (2026-05-20)
+
+
+### Bug Fixes
+
+* rewrite assets resource against the real SuperOps schema ([#8](https://github.com/wyre-technology/node-superops/issues/8)) ([f61fe25](https://github.com/wyre-technology/node-superops/commit/f61fe2528815525232c479bb3f3b33fcb2c5bf5f)), closes [#4](https://github.com/wyre-technology/node-superops/issues/4)
+
+
+### BREAKING CHANGES
+
+* assets resource API and the Asset type changed to match
+SuperOps' real GraphQL schema; assets.list() now returns a page-based
+Page<Asset> instead of a cursor Connection.
+
 ## [1.0.5](https://github.com/wyre-technology/node-superops/compare/v1.0.4...v1.0.5) (2026-05-20)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "@wyre-technology/node-superops",
-  "version": "1.0.5",
+  "version": "2.0.0",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
