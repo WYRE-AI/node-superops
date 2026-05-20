@@ -28,6 +28,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:smoke": "node scripts/smoke-test.mjs",
     "lint": "eslint src tests --ext .ts",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
