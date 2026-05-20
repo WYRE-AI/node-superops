@@ -1,159 +1,120 @@
 /**
- * Knowledge Base types for SuperOps API
+ * Knowledge Base types for the SuperOps MSP API.
+ *
+ * Field names mirror the SuperOps GraphQL `KbItem` type. See SCHEMA.md for the
+ * schema reference these were derived from.
  */
 
-import type { BaseResource, OrderDirection } from './common.js';
+/** Item type for knowledge base items. */
+export type KbItemType = 'KB_COLLECTION' | 'KB_ARTICLE';
 
-/**
- * Article status
- */
-export type ArticleStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+/** Article type enumeration. NOTE: unverified against live API */
+export type KbArticleType = 'INSTRUCTION' | 'TROUBLESHOOTING' | 'FAQ' | 'GENERAL';
 
-/**
- * Article visibility
- */
-export type ArticleVisibility = 'INTERNAL' | 'PUBLIC' | 'CLIENT_SPECIFIC';
+/** Article status enumeration. NOTE: unverified against live API */
+export type KbArticleStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 
-/**
- * Knowledge base collection
- */
-export interface KbCollection extends BaseResource {
+/** Reference to a parent KB item. */
+export interface KbParentRef {
+  itemId: string;
   name: string;
-  description?: string;
-  slug?: string;
-  parentId?: string;
-  articleCount?: number;
-  parent?: {
-    id: string;
-    name: string;
-  };
-  children?: KbCollection[];
+}
+
+/** Reference to a user who created or modified a KB item. */
+export interface KbUserRef {
+  userId: string;
+  name: string;
+}
+
+/** Document sharing/visibility details. NOTE: unverified against live API */
+export interface KbDocumentSharedDetails {
+  shared: boolean;
+  sharedWith?: string[];
 }
 
 /**
- * Knowledge base article
+ * A SuperOps knowledge base item (article or collection).
  */
-export interface KbArticle extends BaseResource {
-  title: string;
-  content: string;
-  status: ArticleStatus;
-  visibility: ArticleVisibility;
-  slug?: string;
-  excerpt?: string;
-  collectionId?: string;
-  collection?: {
-    id: string;
-    name: string;
-  };
-  author?: {
-    id: string;
-    name: string;
-  };
-  publishedAt?: string;
+export interface KbItem {
+  /** Unique KB item identifier. */
+  itemId: string;
+  name: string;
+  parent?: KbParentRef;
+  itemType: KbItemType;
+  description?: string;
+  status?: KbArticleStatus;
+  createdBy?: KbUserRef;
+  createdOn?: string;
+  lastModifiedBy?: KbUserRef;
+  lastModifiedOn?: string;
   viewCount?: number;
-  helpfulCount?: number;
-  notHelpfulCount?: number;
-  tags?: string[];
-  relatedArticleIds?: string[];
-  attachments?: Array<{
-    id: string;
-    name: string;
-    url: string;
-    size: number;
-    mimeType: string;
-  }>;
-  customFields?: Record<string, unknown>;
+  articleType?: KbArticleType;
+  visibility?: KbDocumentSharedDetails;
+  loginRequired?: boolean;
 }
 
 /**
- * Input for creating a collection
+ * Input for creating a knowledge base article.
+ * NOTE: Field names are unverified against live API
  */
-export interface KbCollectionCreateInput {
+export interface KbCreateArticleInput {
   name: string;
   description?: string;
-  slug?: string;
   parentId?: string;
+  articleType?: KbArticleType;
+  status?: KbArticleStatus;
+  visibility?: KbDocumentSharedDetails;
+  loginRequired?: boolean;
 }
 
 /**
- * Input for updating a collection
+ * Input for updating a knowledge base article.
+ * NOTE: Field names are unverified against live API
  */
-export interface KbCollectionUpdateInput {
+export interface KbUpdateArticleInput {
+  itemId: string;
   name?: string;
   description?: string;
-  slug?: string;
+  parentId?: string;
+  articleType?: KbArticleType;
+  status?: KbArticleStatus;
+  visibility?: KbDocumentSharedDetails;
+  loginRequired?: boolean;
+}
+
+/**
+ * Input for deleting a knowledge base article.
+ * NOTE: Field names are unverified against live API
+ */
+export interface KbDeleteArticleInput {
+  itemId: string;
+}
+
+/**
+ * Input for creating a knowledge base collection.
+ * NOTE: Field names are unverified against live API
+ */
+export interface KbCreateCollectionInput {
+  name: string;
+  description?: string;
   parentId?: string;
 }
 
 /**
- * Input for creating an article
+ * Input for updating a knowledge base collection.
+ * NOTE: Field names are unverified against live API
  */
-export interface KbArticleCreateInput {
-  title: string;
-  content: string;
-  status?: ArticleStatus;
-  visibility?: ArticleVisibility;
-  slug?: string;
-  excerpt?: string;
-  collectionId?: string;
-  tags?: string[];
-  relatedArticleIds?: string[];
-  customFields?: Record<string, unknown>;
+export interface KbUpdateCollectionInput {
+  itemId: string;
+  name?: string;
+  description?: string;
+  parentId?: string;
 }
 
 /**
- * Input for updating an article
+ * Input for deleting a knowledge base collection.
+ * NOTE: Field names are unverified against live API
  */
-export interface KbArticleUpdateInput {
-  title?: string;
-  content?: string;
-  status?: ArticleStatus;
-  visibility?: ArticleVisibility;
-  slug?: string;
-  excerpt?: string;
-  collectionId?: string;
-  tags?: string[];
-  relatedArticleIds?: string[];
-  customFields?: Record<string, unknown>;
-}
-
-/**
- * Knowledge base search result
- */
-export interface KbSearchResult {
-  article: KbArticle;
-  score: number;
-  highlights?: {
-    title?: string;
-    content?: string;
-  };
-}
-
-/**
- * Article filter options
- */
-export interface KbArticleFilter {
-  status?: ArticleStatus | ArticleStatus[];
-  visibility?: ArticleVisibility | ArticleVisibility[];
-  collectionId?: string;
-  authorId?: string;
-  tags?: string[];
-  searchQuery?: string;
-  createdAfter?: string | Date;
-  createdBefore?: string | Date;
-  publishedAfter?: string | Date;
-  publishedBefore?: string | Date;
-}
-
-/**
- * Article order by fields
- */
-export type KbArticleOrderField = 'TITLE' | 'STATUS' | 'CREATED_AT' | 'UPDATED_AT' | 'PUBLISHED_AT' | 'VIEW_COUNT';
-
-/**
- * Article order by configuration
- */
-export interface KbArticleOrderBy {
-  field: KbArticleOrderField;
-  direction: OrderDirection;
+export interface KbDeleteCollectionInput {
+  itemId: string;
 }

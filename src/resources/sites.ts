@@ -1,5 +1,5 @@
 /**
- * Sites resource for SuperOps API
+ * Sites resource for the SuperOps MSP API.
  */
 
 import { BaseResource, type BaseResourceOptions } from './base.js';
@@ -8,49 +8,76 @@ import type {
   Site,
   SiteCreateInput,
   SiteUpdateInput,
-  SiteFilter,
-  SiteOrderBy,
-  Connection,
-  ListParams,
+  Page,
+  PageParams,
   AsyncIterableWithHelpers,
 } from '../types/index.js';
 
 /**
- * GraphQL fragments for sites
+ * GraphQL selection set for a client site. Fields match the SuperOps `ClientSite` type.
  */
 const SITE_FRAGMENT = gql`
-  fragment SiteFields on Site {
+  fragment ClientSiteFields on ClientSite {
     id
     name
-    status
-    clientId
-    timezone
-    notes
-    createdAt
-    updatedAt
-    address {
-      street1
-      street2
-      city
-      state
-      postalCode
-      country
+    timezoneCode
+    working24x7
+    businessHour {
+      dayOfWeek
+      startTime
+      endTime
+      isWorkingDay
     }
-    primaryContact {
-      email
-      phone
-      mobile
-      fax
+    holidayList {
+      id
+      name
     }
+    line1
+    line2
+    line3
+    city
+    postalCode
+    countryCode
+    stateCode
+    contactNumber
     client {
       id
       name
     }
+    hq
+    installerInfo {
+      id
+      name
+      contactNumber
+    }
   }
 `;
 
+interface GetClientSiteResponse {
+  getClientSite: Site;
+}
+
+interface GetClientSiteListResponse {
+  getClientSiteList: {
+    clientSites: Site[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface CreateClientSiteResponse {
+  createClientSite: Site;
+}
+
+interface UpdateClientSiteResponse {
+  updateClientSite: Site;
+}
+
 /**
- * Sites resource class
+ * Sites resource class.
  */
 export class SitesResource extends BaseResource {
   constructor(options: BaseResourceOptions) {
@@ -58,130 +85,99 @@ export class SitesResource extends BaseResource {
   }
 
   /**
-   * Get a single site by ID
+   * Get a single client site by its site ID.
    */
-  async get(id: string): Promise<Site> {
+  async get(siteId: string): Promise<Site> {
     const query = gql`
       ${SITE_FRAGMENT}
-      query GetSite($id: ID!) {
-        getSite(id: $id) {
-          ...SiteFields
+      query GetClientSite($input: ClientSiteIdentifierInput!) {
+        getClientSite(input: $input) {
+          ...ClientSiteFields
         }
       }
     `;
 
-    const result = await this.client.query<{ getSite: Site }>(query, { id });
-    return result.getSite;
+    const result = await this.client.query<GetClientSiteResponse>(query, {
+      input: { siteId },
+    });
+    return result.getClientSite;
   }
 
   /**
-   * List sites by client ID
+   * List client sites, one page at a time.
    */
-  async listByClient(
-    clientId: string,
-    params?: Omit<ListParams<SiteFilter, SiteOrderBy>, 'filter'>
-  ): Promise<Connection<Site>> {
+  async list(params?: PageParams): Promise<Page<Site>> {
     const query = gql`
       ${SITE_FRAGMENT}
-      query GetSitesByClient(
-        $clientId: ID!
-        $first: Int
-        $after: String
-        $orderBy: SiteOrderInput
-      ) {
-        getSitesByClient(clientId: $clientId, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...SiteFields
-            }
-            cursor
+      query GetClientSiteList($input: GetClientSiteListInput!) {
+        getClientSiteList(input: $input) {
+          clientSites {
+            ...ClientSiteFields
           }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
+          listInfo {
+            page
+            pageSize
+            totalCount
           }
-          totalCount
         }
       }
     `;
 
-    const variables = {
-      clientId,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
+    const result = await this.client.query<GetClientSiteListResponse>(query, {
+      input: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
+    });
+
+    return {
+      items: result.getClientSiteList.clientSites,
+      meta: result.getClientSiteList.listInfo,
     };
-
-    const result = await this.client.query<{ getSitesByClient: Connection<Site> }>(
-      query,
-      variables
-    );
-    return result.getSitesByClient;
   }
 
   /**
-   * List all sites by client with automatic pagination
+   * Iterate every client site, fetching pages on demand.
    */
-  listByClientAll(
-    clientId: string,
-    params?: Omit<ListParams<SiteFilter, SiteOrderBy>, 'first' | 'after' | 'filter'>
-  ): AsyncIterableWithHelpers<Site> {
-    return this.createListIterator<Site, SiteFilter, SiteOrderBy>(
-      (p) => this.listByClient(clientId, { first: p.first, after: p.after, orderBy: p.orderBy }),
-      params
-    );
+  listAll(params?: { pageSize?: number }): AsyncIterableWithHelpers<Site> {
+    return this.createPageListIterator<Site>((p) => this.list(p), params?.pageSize);
   }
 
   /**
-   * Create a new site for a client
+   * Create a new client site.
    */
-  async create(clientId: string, input: SiteCreateInput): Promise<Site> {
+  async create(input: SiteCreateInput): Promise<Site> {
     const mutation = gql`
       ${SITE_FRAGMENT}
-      mutation CreateClientSite($clientId: ID!, $input: SiteInput!) {
-        createClientSite(clientId: $clientId, input: $input) {
-          ...SiteFields
+      mutation CreateClientSite($input: CreateClientSiteInput!) {
+        createClientSite(input: $input) {
+          ...ClientSiteFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ createClientSite: Site }>(mutation, {
-      clientId,
+    const result = await this.client.mutate<CreateClientSiteResponse>(mutation, {
       input,
     });
     return result.createClientSite;
   }
 
   /**
-   * Update an existing site
+   * Update an existing client site.
    */
-  async update(id: string, input: SiteUpdateInput): Promise<Site> {
+  async update(siteId: string, input: SiteUpdateInput): Promise<Site> {
     const mutation = gql`
       ${SITE_FRAGMENT}
-      mutation UpdateSite($id: ID!, $input: SiteInput!) {
-        updateSite(id: $id, input: $input) {
-          ...SiteFields
+      mutation UpdateClientSite($input: UpdateClientSiteInput!) {
+        updateClientSite(input: $input) {
+          ...ClientSiteFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ updateSite: Site }>(mutation, { id, input });
-    return result.updateSite;
-  }
-
-  /**
-   * Delete a site
-   */
-  async delete(id: string): Promise<boolean> {
-    const mutation = gql`
-      mutation DeleteSite($id: ID!) {
-        deleteSite(id: $id)
-      }
-    `;
-
-    const result = await this.client.mutate<{ deleteSite: boolean }>(mutation, { id });
-    return result.deleteSite;
+    const result = await this.client.mutate<UpdateClientSiteResponse>(mutation, {
+      input: { siteId, ...input },
+    });
+    return result.updateClientSite;
   }
 }

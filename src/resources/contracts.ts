@@ -1,5 +1,5 @@
 /**
- * Contracts resource for SuperOps API
+ * Contracts resource for the SuperOps MSP API.
  */
 
 import { BaseResource, type BaseResourceOptions } from './base.js';
@@ -8,42 +8,64 @@ import type {
   Contract,
   ContractCreateInput,
   ContractUpdateInput,
-  ContractRenewalInput,
-  ContractFilter,
-  ContractOrderBy,
-  Connection,
-  ListParams,
+  Page,
+  PageParams,
   AsyncIterableWithHelpers,
 } from '../types/index.js';
 
 /**
- * GraphQL fragments for contracts
+ * GraphQL selection set for a client contract. Fields match the SuperOps `ClientContract` type.
  */
 const CONTRACT_FRAGMENT = gql`
-  fragment ContractFields on Contract {
-    id
-    name
-    status
-    clientId
-    startDate
-    endDate
-    billingCycle
-    value
-    currency
-    description
-    autoRenew
-    renewalNotificationDays
-    createdAt
-    updatedAt
+  fragment ContractFields on ClientContract {
+    contractId
     client {
-      id
+      accountId
       name
     }
+    contract {
+      name
+      description
+      startDate
+      endDate
+      contractStatus
+      contractValue
+      currency
+      billingCycle
+      autoRenew
+      customFields
+    }
+    startDate
+    endDate
+    contractStatus
   }
 `;
 
+interface GetClientContractResponse {
+  getClientContract: Contract;
+}
+
+interface GetClientContractListResponse {
+  getClientContractList: {
+    clientContracts: Contract[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface CreateClientContractResponse {
+  createClientContract: string; // Returns ID
+}
+
+interface UpdateClientContractResponse {
+  updateClientContract: Contract;
+}
+
 /**
- * Contracts resource class
+ * Contracts resource class.
  */
 export class ContractsResource extends BaseResource {
   constructor(options: BaseResourceOptions) {
@@ -51,133 +73,96 @@ export class ContractsResource extends BaseResource {
   }
 
   /**
-   * Get a single contract by ID
+   * Get a single client contract by its contract ID.
    */
-  async get(id: string): Promise<Contract> {
+  async get(contractId: number): Promise<Contract> {
     const query = gql`
       ${CONTRACT_FRAGMENT}
-      query GetContract($id: ID!) {
-        getContract(id: $id) {
+      query GetClientContract($input: ContractIdentifierInput!) {
+        getClientContract(input: $input) {
           ...ContractFields
         }
       }
     `;
 
-    const result = await this.client.query<{ getContract: Contract }>(query, { id });
-    return result.getContract;
+    const result = await this.client.query<GetClientContractResponse>(query, {
+      input: { contractId },
+    });
+    return result.getClientContract;
   }
 
   /**
-   * List contracts by client ID
+   * List client contracts, one page at a time.
    */
-  async listByClient(
-    clientId: string,
-    params?: Omit<ListParams<ContractFilter, ContractOrderBy>, 'filter'>
-  ): Promise<Connection<Contract>> {
+  async list(params?: PageParams): Promise<Page<Contract>> {
     const query = gql`
       ${CONTRACT_FRAGMENT}
-      query GetContractsByClient(
-        $clientId: ID!
-        $first: Int
-        $after: String
-        $orderBy: ContractOrderInput
-      ) {
-        getContractsByClient(clientId: $clientId, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...ContractFields
-            }
-            cursor
+      query GetClientContractList($input: ListInfoInput) {
+        getClientContractList(input: $input) {
+          clientContracts {
+            ...ContractFields
           }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
+          listInfo {
+            page
+            pageSize
+            totalCount
           }
-          totalCount
         }
       }
     `;
 
-    const variables = {
-      clientId,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
+    const result = await this.client.query<GetClientContractListResponse>(query, {
+      input: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
+    });
+
+    return {
+      items: result.getClientContractList.clientContracts,
+      meta: result.getClientContractList.listInfo,
     };
-
-    const result = await this.client.query<{ getContractsByClient: Connection<Contract> }>(
-      query,
-      variables
-    );
-    return result.getContractsByClient;
   }
 
   /**
-   * List all contracts by client with automatic pagination
+   * Iterate every client contract, fetching pages on demand.
    */
-  listByClientAll(
-    clientId: string,
-    params?: Omit<ListParams<ContractFilter, ContractOrderBy>, 'first' | 'after' | 'filter'>
-  ): AsyncIterableWithHelpers<Contract> {
-    return this.createListIterator<Contract, ContractFilter, ContractOrderBy>(
-      (p) => this.listByClient(clientId, { first: p.first, after: p.after, orderBy: p.orderBy }),
-      params
-    );
+  listAll(params?: { pageSize?: number }): AsyncIterableWithHelpers<Contract> {
+    return this.createPageListIterator<Contract>((p) => this.list(p), params?.pageSize);
   }
 
   /**
-   * Create a new contract for a client
+   * Create a new client contract.
    */
-  async create(clientId: string, input: ContractCreateInput): Promise<Contract> {
+  async create(input: ContractCreateInput): Promise<string> {
     const mutation = gql`
-      ${CONTRACT_FRAGMENT}
-      mutation CreateClientContract($clientId: ID!, $input: ContractInput!) {
-        createClientContract(clientId: $clientId, input: $input) {
-          ...ContractFields
-        }
+      mutation CreateClientContract($input: CreateClientContractInput!) {
+        createClientContract(input: $input)
       }
     `;
 
-    const result = await this.client.mutate<{ createClientContract: Contract }>(mutation, {
-      clientId,
+    const result = await this.client.mutate<CreateClientContractResponse>(mutation, {
       input,
     });
     return result.createClientContract;
   }
 
   /**
-   * Update an existing contract
+   * Update an existing client contract.
    */
-  async update(id: string, input: ContractUpdateInput): Promise<Contract> {
+  async update(contractId: number, input: ContractUpdateInput): Promise<Contract> {
     const mutation = gql`
       ${CONTRACT_FRAGMENT}
-      mutation UpdateContract($id: ID!, $input: ContractInput!) {
-        updateContract(id: $id, input: $input) {
+      mutation UpdateClientContract($input: UpdateClientContractInput!) {
+        updateClientContract(input: $input) {
           ...ContractFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ updateContract: Contract }>(mutation, { id, input });
-    return result.updateContract;
-  }
-
-  /**
-   * Renew a contract
-   */
-  async renew(id: string, input: ContractRenewalInput): Promise<Contract> {
-    const mutation = gql`
-      ${CONTRACT_FRAGMENT}
-      mutation RenewContract($id: ID!, $input: RenewalInput!) {
-        renewContract(id: $id, input: $input) {
-          ...ContractFields
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ renewContract: Contract }>(mutation, { id, input });
-    return result.renewContract;
+    const result = await this.client.mutate<UpdateClientContractResponse>(mutation, {
+      input: { contractId, ...input },
+    });
+    return result.updateClientContract;
   }
 }

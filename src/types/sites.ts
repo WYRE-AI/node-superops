@@ -1,79 +1,112 @@
 /**
- * Site types for SuperOps API
+ * Client Site types for the SuperOps MSP API.
+ *
+ * Field names mirror the SuperOps GraphQL `ClientSite` type. See SCHEMA.md for the
+ * schema reference these were derived from.
  */
 
-import type { BaseResource, OrderDirection } from './common.js';
-import type { Address, ContactInfo } from './clients.js';
+/** Business hour configuration for a site. */
+export interface SiteBusinessHour {
+  // NOTE: unverified against live API - business hour structure not detailed in docs
+  dayOfWeek?: string;
+  startTime?: string;
+  endTime?: string;
+  isWorkingDay?: boolean;
+}
 
-/**
- * Site status
- */
-export type SiteStatus = 'ACTIVE' | 'INACTIVE';
+/** Holiday list configuration for a site. */
+export interface SiteHolidayList {
+  // NOTE: unverified against live API - holiday structure not detailed in docs
+  id?: string;
+  name?: string;
+}
 
-/**
- * Site entity
- */
-export interface Site extends BaseResource {
-  name: string;
-  status: SiteStatus;
-  clientId: string;
-  address?: Address;
-  primaryContact?: ContactInfo;
-  notes?: string;
-  timezone?: string;
-  client?: {
-    id: string;
-    name: string;
-  };
-  customFields?: Record<string, unknown>;
+/** Installer information for a site. */
+export interface SiteInstallerInfo {
+  // NOTE: unverified against live API - installer structure not detailed in docs
+  id?: string;
+  name?: string;
+  contactNumber?: string;
+}
+
+/** Reference to the client that owns a site. */
+export interface SiteClientRef {
+  // NOTE: unverified against live API - client reference structure assumed
+  id: string;
+  name?: string;
 }
 
 /**
- * Input for creating a site
+ * A SuperOps client site.
+ */
+export interface Site {
+  /** Unique site identifier. */
+  id: string;
+  name: string;
+  timezoneCode?: string;
+  working24x7?: boolean;
+  businessHour?: SiteBusinessHour[];
+  holidayList?: SiteHolidayList;
+
+  // Address fields
+  line1?: string;
+  line2?: string;
+  line3?: string;
+  city?: string;
+  postalCode?: string;
+  countryCode?: string;
+  stateCode?: string;
+
+  contactNumber?: string;
+  client?: SiteClientRef;
+  hq?: boolean; // is headquarters
+  installerInfo?: SiteInstallerInfo[];
+}
+
+/**
+ * Input for creating a client site.
  */
 export interface SiteCreateInput {
   name: string;
-  status?: SiteStatus;
-  address?: Address;
-  primaryContact?: ContactInfo;
-  notes?: string;
-  timezone?: string;
-  customFields?: Record<string, unknown>;
+  timezoneCode?: string;
+  working24x7?: boolean;
+
+  // Address fields
+  line1?: string;
+  line2?: string;
+  line3?: string;
+  city?: string;
+  postalCode?: string;
+  countryCode?: string;
+  stateCode?: string;
+
+  contactNumber?: string;
+  hq?: boolean;
+  // NOTE: unverified against live API - complex nested fields may have different input structure
+  businessHour?: SiteBusinessHour[];
+  installerInfo?: SiteInstallerInfo[];
 }
 
 /**
- * Input for updating a site
+ * Input for updating a client site.
  */
 export interface SiteUpdateInput {
   name?: string;
-  status?: SiteStatus;
-  address?: Address;
-  primaryContact?: ContactInfo;
-  notes?: string;
-  timezone?: string;
-  customFields?: Record<string, unknown>;
-}
+  timezoneCode?: string;
+  working24x7?: boolean;
 
-/**
- * Site filter options
- */
-export interface SiteFilter {
-  status?: SiteStatus | SiteStatus[];
-  clientId?: string;
-  searchQuery?: string;
-  createdAfter?: string | Date;
-  createdBefore?: string | Date;
-}
+  // Address fields
+  line1?: string;
+  line2?: string;
+  line3?: string;
+  city?: string;
+  postalCode?: string;
+  countryCode?: string;
+  stateCode?: string;
 
-/**
- * Site order by fields
- */
-export type SiteOrderField = 'NAME' | 'STATUS' | 'CREATED_AT' | 'UPDATED_AT';
-
-/**
- * Site order by configuration
- */
-export interface SiteOrderBy {
-  field: SiteOrderField;
-  direction: OrderDirection;
+  contactNumber?: string;
+  hq?: boolean;
+  // NOTE: unverified against live API - complex nested fields may have different input structure
+  businessHour?: SiteBusinessHour[];
+  installerInfo?: SiteInstallerInfo[];
 }

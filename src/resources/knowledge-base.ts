@@ -1,82 +1,98 @@
 /**
- * Knowledge Base resource for SuperOps API
+ * Knowledge Base resource for the SuperOps MSP API.
  */
 
-import { BaseResource, prepareFilter, type BaseResourceOptions } from './base.js';
+import { BaseResource, type BaseResourceOptions } from './base.js';
 import { gql } from '../graphql-client.js';
 import type {
-  KbArticle,
-  KbCollection,
-  KbArticleCreateInput,
-  KbArticleUpdateInput,
-  KbCollectionCreateInput,
-  KbCollectionUpdateInput,
-  KbArticleFilter,
-  KbArticleOrderBy,
-  KbSearchResult,
-  Connection,
-  ListParams,
+  KbItem,
+  KbCreateArticleInput,
+  KbUpdateArticleInput,
+  KbDeleteArticleInput,
+  KbCreateCollectionInput,
+  KbUpdateCollectionInput,
+  KbDeleteCollectionInput,
+  Page,
+  PageParams,
   AsyncIterableWithHelpers,
 } from '../types/index.js';
 
 /**
- * GraphQL fragments for knowledge base
+ * GraphQL selection set for a KB item. Fields match the SuperOps `KbItem` type.
+ * NOTE: Some field names are unverified against live API
  */
-const KB_ARTICLE_FRAGMENT = gql`
-  fragment KbArticleFields on KbArticle {
-    id
-    title
-    content
+const KB_ITEM_FRAGMENT = gql`
+  fragment KbItemFields on KbItem {
+    itemId
+    name
+    parent {
+      itemId
+      name
+    }
+    itemType
+    description
     status
-    visibility
-    slug
-    excerpt
-    collectionId
-    publishedAt
+    createdBy {
+      userId
+      name
+    }
+    createdOn
+    lastModifiedBy {
+      userId
+      name
+    }
+    lastModifiedOn
     viewCount
-    helpfulCount
-    notHelpfulCount
-    tags
-    relatedArticleIds
-    createdAt
-    updatedAt
-    collection {
-      id
-      name
+    articleType
+    visibility {
+      shared
+      sharedWith
     }
-    author {
-      id
-      name
-    }
-    attachments {
-      id
-      name
-      url
-      size
-      mimeType
-    }
+    loginRequired
   }
 `;
 
-const KB_COLLECTION_FRAGMENT = gql`
-  fragment KbCollectionFields on KbCollection {
-    id
-    name
-    description
-    slug
-    parentId
-    articleCount
-    createdAt
-    updatedAt
-    parent {
-      id
-      name
-    }
-  }
-`;
+interface GetKbItemResponse {
+  getKbItem: KbItem;
+}
+
+interface GetKbItemsResponse {
+  getKbItems: {
+    kbItems: KbItem[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface CreateKbArticleResponse {
+  createKbArticle: KbItem;
+}
+
+interface UpdateKbArticleResponse {
+  updateKbArticle: KbItem;
+}
+
+interface DeleteKbArticleResponse {
+  deleteKbArticle: boolean;
+}
+
+interface CreateKbCollectionResponse {
+  createKbCollection: KbItem;
+}
+
+interface UpdateKbCollectionResponse {
+  updateKbCollection: KbItem;
+}
+
+interface DeleteKbCollectionResponse {
+  deleteKbCollection: boolean;
+}
 
 /**
- * Knowledge Base resource class
+ * Knowledge Base resource class.
  */
 export class KnowledgeBaseResource extends BaseResource {
   constructor(options: BaseResourceOptions) {
@@ -84,247 +100,169 @@ export class KnowledgeBaseResource extends BaseResource {
   }
 
   /**
-   * Get a single article by ID
+   * Get a single KB item (article or collection) by its item ID.
    */
-  async getArticle(id: string): Promise<KbArticle> {
+  async get(itemId: string): Promise<KbItem> {
     const query = gql`
-      ${KB_ARTICLE_FRAGMENT}
-      query GetKbArticle($id: ID!) {
-        getKbArticle(id: $id) {
-          ...KbArticleFields
+      ${KB_ITEM_FRAGMENT}
+      query GetKbItem($input: KBItemIdentifierInput!) {
+        getKbItem(input: $input) {
+          ...KbItemFields
         }
       }
     `;
 
-    const result = await this.client.query<{ getKbArticle: KbArticle }>(query, { id });
-    return result.getKbArticle;
-  }
-
-  /**
-   * Get a single collection by ID
-   */
-  async getCollection(id: string): Promise<KbCollection> {
-    const query = gql`
-      ${KB_COLLECTION_FRAGMENT}
-      query GetKbCollection($id: ID!) {
-        getKbCollection(id: $id) {
-          ...KbCollectionFields
-          children {
-            id
-            name
-            description
-            articleCount
-          }
-        }
-      }
-    `;
-
-    const result = await this.client.query<{ getKbCollection: KbCollection }>(query, { id });
-    return result.getKbCollection;
-  }
-
-  /**
-   * Search the knowledge base
-   */
-  async search(
-    searchQuery: string,
-    params?: Omit<ListParams<KbArticleFilter, KbArticleOrderBy>, 'filter'>
-  ): Promise<Connection<KbSearchResult>> {
-    const query = gql`
-      ${KB_ARTICLE_FRAGMENT}
-      query SearchKnowledgeBase(
-        $query: String!
-        $first: Int
-        $after: String
-        $orderBy: KbArticleOrderInput
-      ) {
-        searchKnowledgeBase(query: $query, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              article {
-                ...KbArticleFields
-              }
-              score
-              highlights {
-                title
-                content
-              }
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      query: searchQuery,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ searchKnowledgeBase: Connection<KbSearchResult> }>(
-      query,
-      variables
-    );
-    return result.searchKnowledgeBase;
-  }
-
-  /**
-   * List articles with pagination and filtering
-   */
-  async listArticles(
-    params?: ListParams<KbArticleFilter, KbArticleOrderBy>
-  ): Promise<Connection<KbArticle>> {
-    const query = gql`
-      ${KB_ARTICLE_FRAGMENT}
-      query GetKbArticleList(
-        $first: Int
-        $after: String
-        $filter: KbArticleFilterInput
-        $orderBy: KbArticleOrderInput
-      ) {
-        getKbArticleList(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-          edges {
-            node {
-              ...KbArticleFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      first: params?.first ?? 50,
-      after: params?.after,
-      filter: prepareFilter(params?.filter),
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ getKbArticleList: Connection<KbArticle> }>(
-      query,
-      variables
-    );
-    return result.getKbArticleList;
-  }
-
-  /**
-   * List all articles with automatic pagination
-   */
-  listArticlesAll(
-    params?: Omit<ListParams<KbArticleFilter, KbArticleOrderBy>, 'first' | 'after'>
-  ): AsyncIterableWithHelpers<KbArticle> {
-    return this.createListIterator<KbArticle, KbArticleFilter, KbArticleOrderBy>(
-      (p) => this.listArticles(p),
-      params
-    );
-  }
-
-  /**
-   * Create a new collection
-   */
-  async createCollection(input: KbCollectionCreateInput): Promise<KbCollection> {
-    const mutation = gql`
-      ${KB_COLLECTION_FRAGMENT}
-      mutation CreateKbCollection($input: KbCollectionInput!) {
-        createKbCollection(input: $input) {
-          ...KbCollectionFields
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ createKbCollection: KbCollection }>(mutation, {
-      input,
+    const result = await this.client.query<GetKbItemResponse>(query, {
+      input: { itemId },
     });
-    return result.createKbCollection;
+    return result.getKbItem;
   }
 
   /**
-   * Update a collection
+   * List KB items, one page at a time.
    */
-  async updateCollection(id: string, input: KbCollectionUpdateInput): Promise<KbCollection> {
-    const mutation = gql`
-      ${KB_COLLECTION_FRAGMENT}
-      mutation UpdateKbCollection($id: ID!, $input: KbCollectionInput!) {
-        updateKbCollection(id: $id, input: $input) {
-          ...KbCollectionFields
+  async list(params?: PageParams): Promise<Page<KbItem>> {
+    const query = gql`
+      ${KB_ITEM_FRAGMENT}
+      query GetKbItems($listInfo: ListInfoInput!) {
+        getKbItems(listInfo: $listInfo) {
+          kbItems {
+            ...KbItemFields
+          }
+          listInfo {
+            page
+            pageSize
+            totalCount
+          }
         }
       }
     `;
 
-    const result = await this.client.mutate<{ updateKbCollection: KbCollection }>(mutation, {
-      id,
-      input,
+    const result = await this.client.query<GetKbItemsResponse>(query, {
+      listInfo: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
     });
-    return result.updateKbCollection;
+
+    return {
+      items: result.getKbItems.kbItems,
+      meta: result.getKbItems.listInfo,
+    };
   }
 
   /**
-   * Create a new article
+   * Iterate every KB item, fetching pages on demand.
    */
-  async createArticle(input: KbArticleCreateInput): Promise<KbArticle> {
+  listAll(params?: { pageSize?: number }): AsyncIterableWithHelpers<KbItem> {
+    return this.createPageListIterator<KbItem>((p) => this.list(p), params?.pageSize);
+  }
+
+  /**
+   * Create a new knowledge base article.
+   */
+  async createArticle(input: KbCreateArticleInput): Promise<KbItem> {
     const mutation = gql`
-      ${KB_ARTICLE_FRAGMENT}
-      mutation CreateKbArticle($input: KbArticleInput!) {
+      ${KB_ITEM_FRAGMENT}
+      mutation CreateKbArticle($input: CreateKbArticleInput!) {
         createKbArticle(input: $input) {
-          ...KbArticleFields
+          ...KbItemFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ createKbArticle: KbArticle }>(mutation, { input });
+    const result = await this.client.mutate<CreateKbArticleResponse>(mutation, {
+      input,
+    });
     return result.createKbArticle;
   }
 
   /**
-   * Update an article
+   * Update an existing knowledge base article.
    */
-  async updateArticle(id: string, input: KbArticleUpdateInput): Promise<KbArticle> {
+  async updateArticle(input: KbUpdateArticleInput): Promise<KbItem> {
     const mutation = gql`
-      ${KB_ARTICLE_FRAGMENT}
-      mutation UpdateKbArticle($id: ID!, $input: KbArticleInput!) {
-        updateKbArticle(id: $id, input: $input) {
-          ...KbArticleFields
+      ${KB_ITEM_FRAGMENT}
+      mutation UpdateKbArticle($input: UpdateKbArticleInput!) {
+        updateKbArticle(input: $input) {
+          ...KbItemFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ updateKbArticle: KbArticle }>(mutation, {
-      id,
+    const result = await this.client.mutate<UpdateKbArticleResponse>(mutation, {
       input,
     });
     return result.updateKbArticle;
   }
 
   /**
-   * Publish an article
+   * Delete a knowledge base article.
    */
-  async publishArticle(id: string): Promise<KbArticle> {
+  async deleteArticle(input: KbDeleteArticleInput): Promise<boolean> {
     const mutation = gql`
-      ${KB_ARTICLE_FRAGMENT}
-      mutation PublishKbArticle($id: ID!) {
-        publishKbArticle(id: $id) {
-          ...KbArticleFields
+      mutation DeleteKbArticle($input: DeleteKbArticleInput!) {
+        deleteKbArticle(input: $input)
+      }
+    `;
+
+    const result = await this.client.mutate<DeleteKbArticleResponse>(mutation, {
+      input,
+    });
+    return result.deleteKbArticle;
+  }
+
+  /**
+   * Create a new knowledge base collection.
+   */
+  async createCollection(input: KbCreateCollectionInput): Promise<KbItem> {
+    const mutation = gql`
+      ${KB_ITEM_FRAGMENT}
+      mutation CreateKbCollection($input: CreateKbCollectionInput!) {
+        createKbCollection(input: $input) {
+          ...KbItemFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ publishKbArticle: KbArticle }>(mutation, { id });
-    return result.publishKbArticle;
+    const result = await this.client.mutate<CreateKbCollectionResponse>(mutation, {
+      input,
+    });
+    return result.createKbCollection;
+  }
+
+  /**
+   * Update an existing knowledge base collection.
+   */
+  async updateCollection(input: KbUpdateCollectionInput): Promise<KbItem> {
+    const mutation = gql`
+      ${KB_ITEM_FRAGMENT}
+      mutation UpdateKbCollection($input: UpdateKbCollectionInput!) {
+        updateKbCollection(input: $input) {
+          ...KbItemFields
+        }
+      }
+    `;
+
+    const result = await this.client.mutate<UpdateKbCollectionResponse>(mutation, {
+      input,
+    });
+    return result.updateKbCollection;
+  }
+
+  /**
+   * Delete a knowledge base collection.
+   */
+  async deleteCollection(input: KbDeleteCollectionInput): Promise<boolean> {
+    const mutation = gql`
+      mutation DeleteKbCollection($input: DeleteKbCollectionInput!) {
+        deleteKbCollection(input: $input)
+      }
+    `;
+
+    const result = await this.client.mutate<DeleteKbCollectionResponse>(mutation, {
+      input,
+    });
+    return result.deleteKbCollection;
   }
 }

@@ -1,114 +1,70 @@
 /**
- * Alert types for SuperOps API
+ * Alert types for the SuperOps MSP API.
+ *
+ * Field names mirror the SuperOps GraphQL `Alert` type. See SCHEMA.md for the
+ * schema reference these were derived from.
  */
 
-import type { BaseResource, OrderDirection } from './common.js';
-
-/**
- * Alert status
- */
-export type AlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'DISMISSED';
-
-/**
- * Alert severity
- */
-export type AlertSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
-
-/**
- * Alert category
- */
-export type AlertCategory =
-  | 'SYSTEM'
-  | 'NETWORK'
-  | 'SECURITY'
-  | 'PERFORMANCE'
-  | 'STORAGE'
-  | 'APPLICATION'
-  | 'CUSTOM';
-
-/**
- * Alert entity
- */
-export interface Alert extends BaseResource {
-  title: string;
-  message?: string;
-  status: AlertStatus;
-  severity: AlertSeverity;
-  category: AlertCategory;
-  source?: string;
-  acknowledgedAt?: string;
-  resolvedAt?: string;
-  dismissedAt?: string;
+/** Reference to the asset associated with an alert. */
+export interface AlertAssetRef {
+  // NOTE: unverified against live API - assuming assetId based on other ref patterns
   assetId?: string;
-  clientId?: string;
-  siteId?: string;
-  ticketId?: string;
-  asset?: {
-    id: string;
-    name: string;
-  };
-  client?: {
-    id: string;
-    name: string;
-  };
-  site?: {
-    id: string;
-    name: string;
-  };
-  ticket?: {
-    id: string;
-    subject: string;
-  };
-  acknowledgedBy?: {
-    id: string;
-    name: string;
-  };
-  resolvedBy?: {
-    id: string;
-    name: string;
-  };
-  metadata?: Record<string, unknown>;
+  name?: string;
+}
+
+/** Reference to the monitoring policy that triggered an alert. */
+export interface AlertPolicyRef {
+  // NOTE: unverified against live API - assuming standard ref pattern
+  id?: string;
+  name?: string;
 }
 
 /**
- * Input for creating an alert
+ * A SuperOps alert.
+ *
+ * Field names match the SuperOps GraphQL `Alert` type.
+ */
+export interface Alert {
+  /** Unique alert identifier */
+  id: string;
+  /** Alert title/summary message */
+  message: string;
+  /** Detailed description of the alert */
+  description?: string;
+  /** Alert severity level */
+  severity: string;
+  /** Current alert status */
+  status: string;
+  /** When the alert was created */
+  createdTime: string;
+  /** When the alert was resolved (if applicable) */
+  resolvedTime?: string;
+  /** Associated asset information */
+  asset?: AlertAssetRef;
+  /** Monitoring policy that triggered this alert */
+  policy?: AlertPolicyRef;
+}
+
+/**
+ * Input for creating a new alert.
  */
 export interface AlertCreateInput {
-  title: string;
-  message?: string;
-  severity: AlertSeverity;
-  category?: AlertCategory;
-  source?: string;
+  /** Alert message/title */
+  message: string;
+  /** Detailed description */
+  description?: string;
+  /** Alert severity */
+  severity: string;
+  /** Asset to associate with the alert */
   assetId?: string;
-  clientId?: string;
-  siteId?: string;
-  metadata?: Record<string, unknown>;
+  // NOTE: unverified against live API - other fields may be required/available
 }
 
 /**
- * Alert filter options
+ * Input for resolving alerts.
  */
-export interface AlertFilter {
-  status?: AlertStatus | AlertStatus[];
-  severity?: AlertSeverity | AlertSeverity[];
-  category?: AlertCategory | AlertCategory[];
-  assetId?: string;
-  clientId?: string;
-  siteId?: string;
-  searchQuery?: string;
-  createdAfter?: string | Date;
-  createdBefore?: string | Date;
-}
-
-/**
- * Alert order by fields
- */
-export type AlertOrderField = 'TITLE' | 'STATUS' | 'SEVERITY' | 'CREATED_AT' | 'UPDATED_AT';
-
-/**
- * Alert order by configuration
- */
-export interface AlertOrderBy {
-  field: AlertOrderField;
-  direction: OrderDirection;
+export interface AlertResolveInput {
+  /** Alert IDs to resolve */
+  alertIds: string[];
+  // NOTE: unverified against live API - may have additional fields like resolution reason
 }
