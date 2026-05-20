@@ -10,6 +10,7 @@ import {
   validateCustomerSubDomain,
   getHeaders,
 } from '../../src/config.js';
+import type { SuperOpsRegion } from '../../src/types/common.js';
 
 describe('Configuration', () => {
   describe('validateApiToken', () => {
@@ -101,7 +102,7 @@ describe('Configuration', () => {
         resolveEndpoint({
           apiToken: 'test',
           customerSubDomain: 'test',
-          region: 'invalid' as any,
+          region: 'invalid' as unknown as SuperOpsRegion,
         })
       ).toThrow('Invalid region');
     });
