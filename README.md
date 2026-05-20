@@ -95,48 +95,26 @@ const client = new SuperOpsClient({
 ```typescript
 // Get single asset
 const asset = await client.assets.get('asset-123');
+console.log(asset.name, asset.hostName, asset.status);
 
-// List assets with filtering
-const result = await client.assets.list({
-  first: 50,
-  filter: {
-    status: 'ACTIVE',
-    type: 'WORKSTATION',
-    clientId: 'client-456',
-  },
-  orderBy: {
-    field: 'NAME',
-    direction: 'ASC',
-  },
-});
+// List assets, one page at a time
+const result = await client.assets.list({ page: 1, pageSize: 50 });
+console.log(result.items, result.meta.totalCount);
 
 // Auto-paginate all assets
 for await (const asset of client.assets.listAll()) {
   console.log(asset.name);
 }
 
-// List by client
-const clientAssets = await client.assets.listByClient('client-456');
-
-// List by site
-const siteAssets = await client.assets.listBySite('site-789');
-
-// Create asset
-const newAsset = await client.assets.create({
-  name: 'New Workstation',
-  type: 'WORKSTATION',
-  clientId: 'client-456',
+// Update an asset's custom fields
+const updated = await client.assets.update('asset-123', {
+  customFields: { location: 'HQ' },
 });
-
-// Update asset
-const updatedAsset = await client.assets.update('asset-123', {
-  name: 'Updated Name',
-  status: 'MAINTENANCE',
-});
-
-// Delete asset
-await client.assets.delete('asset-123');
 ```
+
+> **Note:** Other resources (`tickets`, `clients`, `sites`, …) are still being
+> migrated to the real SuperOps schema — see the v2.0.0 tracking issue. Only
+> `assets` is verified against SuperOps' published API today.
 
 ### Tickets
 
