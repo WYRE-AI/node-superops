@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/wyre-technology/node-superops/compare/v1.0.4...v1.0.5) (2026-05-20)
+
+
+### Bug Fixes
+
+* correct exports map and add package smoke test ([#3](https://github.com/wyre-technology/node-superops/issues/3)) ([d36fdd8](https://github.com/wyre-technology/node-superops/commit/d36fdd861ced3dcf09cb7869918deecbffad6464)), closes [#2](https://github.com/wyre-technology/node-superops/issues/2)
+
 ## [1.0.4](https://github.com/wyre-technology/node-superops/compare/v1.0.3...v1.0.4) (2026-03-02)
 
 
