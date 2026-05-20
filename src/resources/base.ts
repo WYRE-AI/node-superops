@@ -8,9 +8,15 @@ import type {
   AsyncIterableWithHelpers,
   Connection,
   ListParams,
+  Page,
+  PageParams,
   DateHandling,
 } from '../types/index.js';
-import { createCursorPaginatedIterator, DEFAULT_PAGE_SIZE } from '../pagination.js';
+import {
+  createCursorPaginatedIterator,
+  createPagePaginatedIterator,
+  DEFAULT_PAGE_SIZE,
+} from '../pagination.js';
 
 /**
  * Options for the base resource
@@ -107,5 +113,17 @@ export abstract class BaseResource {
       },
       { pageSize: DEFAULT_PAGE_SIZE }
     );
+  }
+
+  /**
+   * Create an auto-paginating iterator for a page-based list operation.
+   */
+  protected createPageListIterator<T>(
+    queryFn: (params: PageParams) => Promise<Page<T>>,
+    pageSize?: number
+  ): AsyncIterableWithHelpers<T> {
+    return createPagePaginatedIterator<T>((p) => queryFn(p), {
+      pageSize: pageSize ?? DEFAULT_PAGE_SIZE,
+    });
   }
 }

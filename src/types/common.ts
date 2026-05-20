@@ -144,6 +144,42 @@ export interface ListParams<TFilter = Record<string, unknown>, TOrderBy = Record
 export type OrderDirection = 'ASC' | 'DESC';
 
 /**
+ * Page-based pagination parameters.
+ *
+ * SuperOps list queries paginate by page number, not GraphQL cursors. The
+ * cursor-based `Connection`/`ListParams` types above are retained only for
+ * resources not yet migrated to the real SuperOps schema.
+ */
+export interface PageParams {
+  /** 1-based page number (default: 1) */
+  page?: number;
+  /** Items per page (default: 50) */
+  pageSize?: number;
+}
+
+/**
+ * Pagination metadata returned alongside a page of results.
+ */
+export interface ListMeta {
+  /** 1-based page number this result represents */
+  page: number;
+  /** Items per page */
+  pageSize: number;
+  /** Total records matching the query across all pages */
+  totalCount: number;
+}
+
+/**
+ * A single page of results from a SuperOps list query.
+ */
+export interface Page<T> {
+  /** Items on this page */
+  items: T[];
+  /** Pagination metadata */
+  meta: ListMeta;
+}
+
+/**
  * Base resource type with common fields
  */
 export interface BaseResource {

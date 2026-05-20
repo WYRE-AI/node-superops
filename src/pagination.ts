@@ -2,7 +2,7 @@
  * Cursor-based pagination utilities for SuperOps GraphQL API
  */
 
-import type { AsyncIterableWithHelpers, Connection, PageInfo } from './types/index.js';
+import type { AsyncIterableWithHelpers, Connection, Page, PageInfo } from './types/index.js';
 
 /**
  * Default page size for pagination
@@ -106,6 +106,78 @@ export function createCursorPaginatedIterator<T>(
   };
 
   return iterable;
+}
+
+/**
+ * Function type for fetching a single page of a page-based list query
+ */
+export type PageListFetcher<T> = (params: {
+  page: number;
+  pageSize: number;
+}) => Promise<Page<T>>;
+
+/**
+ * Create an async iterable that automatically walks every page of a
+ * page-based (page/pageSize) SuperOps list query, yielding individual items.
+ */
+export function createPagePaginatedIterator<T>(
+  fetcher: PageListFetcher<T>,
+  options: PaginationOptions = {}
+): AsyncIterableWithHelpers<T> {
+  const pageSize = Math.min(options.pageSize || DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const maxItems = options.maxItems;
+
+  let buffer: T[] = [];
+  let bufferIndex = 0;
+  let nextPage = 1;
+  let hasMore = true;
+  let totalReturned = 0;
+
+  const iterator: AsyncIterator<T> = {
+    async next(): Promise<IteratorResult<T>> {
+      if (maxItems !== undefined && totalReturned >= maxItems) {
+        return { done: true, value: undefined };
+      }
+
+      while (bufferIndex >= buffer.length && hasMore) {
+        const page = await fetcher({ page: nextPage, pageSize });
+        buffer = page.items;
+        bufferIndex = 0;
+
+        // A short page means there is nothing after it; otherwise compare the
+        // running count against the reported total.
+        const fetchedThroughThisPage = nextPage * pageSize;
+        hasMore =
+          buffer.length === pageSize && fetchedThroughThisPage < page.meta.totalCount;
+        nextPage += 1;
+
+        if (buffer.length === 0) {
+          return { done: true, value: undefined };
+        }
+      }
+
+      if (bufferIndex >= buffer.length) {
+        return { done: true, value: undefined };
+      }
+
+      const item = buffer[bufferIndex++];
+      totalReturned++;
+      return { done: false, value: item };
+    },
+  };
+
+  return {
+    [Symbol.asyncIterator](): AsyncIterator<T> {
+      return iterator;
+    },
+    async toArray(): Promise<T[]> {
+      const results: T[] = [];
+      for await (const item of this) {
+        results.push(item);
+      }
+      return results;
+    },
+  };
 }
 
 /**

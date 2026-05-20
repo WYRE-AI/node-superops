@@ -1,124 +1,75 @@
 /**
- * Asset types for SuperOps API
+ * Asset types for the SuperOps MSP API.
+ *
+ * Field names mirror the SuperOps GraphQL `Asset` type. See SCHEMA.md for the
+ * schema reference these were derived from.
  */
 
-import type { BaseResource, OrderDirection } from './common.js';
-
-/**
- * Asset status
- */
-export type AssetStatus = 'ACTIVE' | 'INACTIVE' | 'RETIRED' | 'MAINTENANCE';
-
-/**
- * Asset type
- */
-export type AssetType =
-  | 'WORKSTATION'
-  | 'SERVER'
-  | 'LAPTOP'
-  | 'NETWORK_DEVICE'
-  | 'PRINTER'
-  | 'MOBILE'
-  | 'VIRTUAL_MACHINE'
-  | 'OTHER';
-
-/**
- * Asset entity
- */
-export interface Asset extends BaseResource {
+/** Reference to the asset class an asset belongs to. */
+export interface AssetClass {
+  classId: string;
   name: string;
-  type: AssetType;
-  status: AssetStatus;
+}
+
+/** Reference to the client that owns an asset. */
+export interface AssetClientRef {
+  accountId: string;
+  name: string;
+}
+
+/** Reference to the site an asset is located at. */
+export interface AssetSiteRef {
+  id: string;
+  name: string;
+}
+
+/** Reference to the requester (user) associated with an asset. */
+export interface AssetRequesterRef {
+  userId: string;
+  name: string;
+}
+
+/**
+ * A SuperOps asset (a managed device).
+ */
+export interface Asset {
+  /** Unique asset identifier. */
+  assetId: string;
+  name: string;
+  assetClass?: AssetClass;
+  client?: AssetClientRef;
+  site?: AssetSiteRef;
+  requester?: AssetRequesterRef;
+  primaryMac?: string;
+  loggedInUser?: string;
   serialNumber?: string;
   manufacturer?: string;
   model?: string;
-  operatingSystem?: string;
-  ipAddress?: string;
-  macAddress?: string;
-  lastSeenAt?: string;
-  installedAt?: string;
-  warrantyExpiresAt?: string;
-  notes?: string;
-  clientId?: string;
-  siteId?: string;
-  client?: {
-    id: string;
-    name: string;
-  };
-  site?: {
-    id: string;
-    name: string;
-  };
+  hostName?: string;
+  publicIp?: string;
+  gateway?: string;
+  platform?: string;
+  domain?: string;
+  status?: string;
+  sysUptime?: string;
+  lastCommunicatedTime?: string;
+  agentVersion?: string;
+  platformFamily?: string;
+  platformCategory?: string;
+  platformVersion?: string;
+  patchStatus?: string;
+  warrantyExpiryDate?: string;
+  purchasedDate?: string;
+  lastReportedTime?: string;
   customFields?: Record<string, unknown>;
 }
 
 /**
- * Input for creating an asset
- */
-export interface AssetCreateInput {
-  name: string;
-  type: AssetType;
-  status?: AssetStatus;
-  serialNumber?: string;
-  manufacturer?: string;
-  model?: string;
-  operatingSystem?: string;
-  ipAddress?: string;
-  macAddress?: string;
-  installedAt?: string | Date;
-  warrantyExpiresAt?: string | Date;
-  notes?: string;
-  clientId: string;
-  siteId?: string;
-  customFields?: Record<string, unknown>;
-}
-
-/**
- * Input for updating an asset
+ * Input for updating an asset.
+ *
+ * SuperOps' `updateAsset` mutation only supports updating an asset's custom
+ * fields via the public API.
  */
 export interface AssetUpdateInput {
-  name?: string;
-  type?: AssetType;
-  status?: AssetStatus;
-  serialNumber?: string;
-  manufacturer?: string;
-  model?: string;
-  operatingSystem?: string;
-  ipAddress?: string;
-  macAddress?: string;
-  installedAt?: string | Date;
-  warrantyExpiresAt?: string | Date;
-  notes?: string;
-  clientId?: string;
-  siteId?: string;
   customFields?: Record<string, unknown>;
-}
-
-/**
- * Asset filter options
- */
-export interface AssetFilter {
-  status?: AssetStatus | AssetStatus[];
-  type?: AssetType | AssetType[];
-  clientId?: string;
-  siteId?: string;
-  name?: string;
-  searchQuery?: string;
-  createdAfter?: string | Date;
-  createdBefore?: string | Date;
-  lastSeenAfter?: string | Date;
-  lastSeenBefore?: string | Date;
-}
-
-/**
- * Asset order by fields
- */
-export type AssetOrderField = 'NAME' | 'TYPE' | 'STATUS' | 'CREATED_AT' | 'UPDATED_AT' | 'LAST_SEEN_AT';
-
-/**
- * Asset order by configuration
- */
-export interface AssetOrderBy {
-  field: AssetOrderField;
-  direction: OrderDirection;
 }
