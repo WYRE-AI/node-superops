@@ -1,50 +1,72 @@
 /**
- * Technicians resource for SuperOps API
+ * Technicians resource for the SuperOps MSP API.
  */
 
-import { BaseResource, prepareFilter, type BaseResourceOptions } from './base.js';
+import { BaseResource, type BaseResourceOptions } from './base.js';
 import { gql } from '../graphql-client.js';
 import type {
   Technician,
+  TechnicianCreateInput,
   TechnicianUpdateInput,
-  TechnicianFilter,
-  TechnicianOrderBy,
-  AvailabilitySlot,
-  Connection,
-  ListParams,
+  Page,
+  PageParams,
   AsyncIterableWithHelpers,
 } from '../types/index.js';
 
 /**
- * GraphQL fragments for technicians
+ * GraphQL selection set for a technician. Fields match the SuperOps `Technician` type.
+ * NOTE: Some field names are unverified against live API and based on common patterns.
  */
 const TECHNICIAN_FRAGMENT = gql`
   fragment TechnicianFields on Technician {
-    id
-    email
+    userId
     firstName
     lastName
-    name
-    status
-    role
-    phone
-    mobile
-    title
-    department
-    timezone
-    avatarUrl
-    skills
-    createdAt
-    updatedAt
-    queues {
-      id
+    email
+    phoneNumber
+    role {
+      roleId
       name
     }
+    status
+    isActive
+    department
+    jobTitle
+    timeZone
+    groups {
+      groupId
+      name
+    }
+    createdDate
+    modifiedDate
   }
 `;
 
+interface GetTechnicianListResponse {
+  getTechnicianList: {
+    technicians: Technician[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface CreateTechnicianResponse {
+  createTechnician: Technician;
+}
+
+interface UpdateTechnicianResponse {
+  updateTechnician: Technician;
+}
+
+interface DeleteTechnicianResponse {
+  deleteTechnician: boolean;
+}
+
 /**
- * Technicians resource class
+ * Technicians resource class.
  */
 export class TechniciansResource extends BaseResource {
   constructor(options: BaseResourceOptions) {
@@ -52,122 +74,96 @@ export class TechniciansResource extends BaseResource {
   }
 
   /**
-   * Get a single technician by ID
+   * List technicians, one page at a time.
    */
-  async get(id: string): Promise<Technician> {
+  async list(params?: PageParams): Promise<Page<Technician>> {
     const query = gql`
       ${TECHNICIAN_FRAGMENT}
-      query GetTechnician($id: ID!) {
-        getTechnician(id: $id) {
-          ...TechnicianFields
+      query GetTechnicianList($input: ListInfoInput!) {
+        getTechnicianList(input: $input) {
+          technicians {
+            ...TechnicianFields
+          }
+          listInfo {
+            page
+            pageSize
+            totalCount
+          }
         }
       }
     `;
 
-    const result = await this.client.query<{ getTechnician: Technician }>(query, { id });
-    return result.getTechnician;
-  }
+    const result = await this.client.query<GetTechnicianListResponse>(query, {
+      input: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
+    });
 
-  /**
-   * List technicians with pagination and filtering
-   */
-  async list(
-    params?: ListParams<TechnicianFilter, TechnicianOrderBy>
-  ): Promise<Connection<Technician>> {
-    const query = gql`
-      ${TECHNICIAN_FRAGMENT}
-      query GetTechnicianList(
-        $first: Int
-        $after: String
-        $filter: TechnicianFilterInput
-        $orderBy: TechnicianOrderInput
-      ) {
-        getTechnicianList(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-          edges {
-            node {
-              ...TechnicianFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      first: params?.first ?? 50,
-      after: params?.after,
-      filter: prepareFilter(params?.filter),
-      orderBy: params?.orderBy,
+    return {
+      items: result.getTechnicianList.technicians,
+      meta: result.getTechnicianList.listInfo,
     };
-
-    const result = await this.client.query<{ getTechnicianList: Connection<Technician> }>(
-      query,
-      variables
-    );
-    return result.getTechnicianList;
   }
 
   /**
-   * List all technicians with automatic pagination
+   * Iterate every technician, fetching pages on demand.
    */
-  listAll(
-    params?: Omit<ListParams<TechnicianFilter, TechnicianOrderBy>, 'first' | 'after'>
-  ): AsyncIterableWithHelpers<Technician> {
-    return this.createListIterator<Technician, TechnicianFilter, TechnicianOrderBy>(
-      (p) => this.list(p),
-      params
-    );
+  listAll(params?: { pageSize?: number }): AsyncIterableWithHelpers<Technician> {
+    return this.createPageListIterator<Technician>((p) => this.list(p), params?.pageSize);
   }
 
   /**
-   * Get technician availability for a specific date
+   * Create a new technician.
    */
-  async getAvailability(id: string, date: string | Date): Promise<AvailabilitySlot[]> {
-    const query = gql`
-      query GetTechnicianAvailability($id: ID!, $date: Date!) {
-        getTechnicianAvailability(id: $id, date: $date) {
-          date
-          startTime
-          endTime
-          available
-          reason
-        }
-      }
-    `;
-
-    const dateString = date instanceof Date ? date.toISOString().split('T')[0] : date;
-
-    const result = await this.client.query<{ getTechnicianAvailability: AvailabilitySlot[] }>(
-      query,
-      { id, date: dateString }
-    );
-    return result.getTechnicianAvailability;
-  }
-
-  /**
-   * Update a technician
-   */
-  async update(id: string, input: TechnicianUpdateInput): Promise<Technician> {
+  async create(input: TechnicianCreateInput): Promise<Technician> {
     const mutation = gql`
       ${TECHNICIAN_FRAGMENT}
-      mutation UpdateTechnician($id: ID!, $input: TechnicianInput!) {
-        updateTechnician(id: $id, input: $input) {
+      mutation CreateTechnician($input: CreateTechnicianInput!) {
+        createTechnician(input: $input) {
           ...TechnicianFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ updateTechnician: Technician }>(mutation, {
-      id,
+    const result = await this.client.mutate<CreateTechnicianResponse>(mutation, {
+      input,
+    });
+    return result.createTechnician;
+  }
+
+  /**
+   * Update an existing technician.
+   */
+  async update(input: TechnicianUpdateInput): Promise<Technician> {
+    const mutation = gql`
+      ${TECHNICIAN_FRAGMENT}
+      mutation UpdateTechnician($input: UpdateTechnicianInput!) {
+        updateTechnician(input: $input) {
+          ...TechnicianFields
+        }
+      }
+    `;
+
+    const result = await this.client.mutate<UpdateTechnicianResponse>(mutation, {
       input,
     });
     return result.updateTechnician;
+  }
+
+  /**
+   * Delete a technician.
+   */
+  async delete(userId: string): Promise<boolean> {
+    const mutation = gql`
+      mutation DeleteTechnician($input: DeleteUserInput!) {
+        deleteTechnician(input: $input)
+      }
+    `;
+
+    const result = await this.client.mutate<DeleteTechnicianResponse>(mutation, {
+      input: { userId },
+    });
+    return result.deleteTechnician;
   }
 }

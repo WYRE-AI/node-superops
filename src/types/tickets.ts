@@ -1,197 +1,127 @@
 /**
- * Ticket types for SuperOps API
+ * Ticket types for the SuperOps MSP API.
+ *
+ * Field names mirror the SuperOps GraphQL `Ticket` type. See SCHEMA.md for the
+ * schema reference these were derived from.
  */
 
-import type { BaseResource, OrderDirection } from './common.js';
+/** Reference to the client that owns a ticket. */
+export interface TicketClientRef {
+  accountId?: string;
+  name?: string;
+}
 
-/**
- * Ticket status
- */
-export type TicketStatus =
-  | 'OPEN'
-  | 'IN_PROGRESS'
-  | 'WAITING_ON_CLIENT'
-  | 'WAITING_ON_VENDOR'
-  | 'SCHEDULED'
-  | 'RESOLVED'
-  | 'CLOSED';
+/** Reference to the site where a ticket is located. */
+export interface TicketSiteRef {
+  id?: string;
+  name?: string;
+}
 
-/**
- * Ticket priority
- */
-export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+/** Reference to a user (requester, technician, etc.). */
+export interface TicketUserRef {
+  userId?: string;
+  name?: string;
+  email?: string;
+}
 
-/**
- * Ticket type
- */
-export type TicketType = 'INCIDENT' | 'SERVICE_REQUEST' | 'PROBLEM' | 'CHANGE' | 'TASK';
+/** Reference to a technician group. */
+export interface TicketTechGroupRef {
+  id?: string;
+  name?: string;
+}
 
-/**
- * Ticket source
- */
-export type TicketSource = 'EMAIL' | 'PORTAL' | 'PHONE' | 'CHAT' | 'AGENT' | 'API' | 'ALERT';
-
-/**
- * Ticket note
- */
-export interface TicketNote {
-  id: string;
-  content: string;
-  isPublic: boolean;
-  createdAt: string;
-  createdBy?: {
-    id: string;
-    name: string;
-  };
+/** SLA information for a ticket. */
+export interface TicketSLA {
+  id?: string;
+  name?: string;
+  // NOTE: unverified against live API - may have additional fields
 }
 
 /**
- * Ticket time entry
+ * A SuperOps ticket (service request/incident).
  */
-export interface TicketTimeEntry {
-  id: string;
-  startTime: string;
-  endTime?: string;
-  durationMinutes: number;
-  description?: string;
-  billable: boolean;
-  technicianId: string;
-  technician?: {
-    id: string;
-    name: string;
-  };
-}
-
-/**
- * Ticket entity
- */
-export interface Ticket extends BaseResource {
+export interface Ticket {
+  /** Unique ticket identifier. */
+  ticketId: string;
+  /** Display ID shown in UI. */
+  displayId?: string;
   subject: string;
-  description?: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  type: TicketType;
-  source: TicketSource;
-  dueDate?: string;
-  resolvedAt?: string;
-  closedAt?: string;
-  firstResponseAt?: string;
-  clientId?: string;
-  siteId?: string;
-  assetId?: string;
-  technicianId?: string;
-  queueId?: string;
-  client?: {
-    id: string;
-    name: string;
-  };
-  site?: {
-    id: string;
-    name: string;
-  };
-  asset?: {
-    id: string;
-    name: string;
-  };
-  technician?: {
-    id: string;
-    name: string;
-    email?: string;
-  };
-  queue?: {
-    id: string;
-    name: string;
-  };
-  notes?: TicketNote[];
-  timeEntries?: TicketTimeEntry[];
-  tags?: string[];
+  ticketType?: string;
+  requestType?: string;
+  source?: string;
+  client?: TicketClientRef;
+  site?: TicketSiteRef;
+  requester?: TicketUserRef;
+  additionalRequester?: TicketUserRef[];
+  followers?: Record<string, unknown>;
+  techGroup?: TicketTechGroupRef;
+  technician?: TicketUserRef;
+  status?: string;
+  priority?: string;
+  impact?: string;
+  urgency?: string;
+  category?: string;
+  subcategory?: string;
+  cause?: string;
+  subcause?: string;
+  resolutionCode?: string;
+  sla?: TicketSLA;
+  createdTime?: string;
+  updatedTime?: string;
+  firstResponseDueTime?: string;
+  firstResponseTime?: string;
+  firstResponseViolated?: boolean;
+  resolutionDueTime?: string;
+  resolutionTime?: string;
+  resolutionViolated?: boolean;
   customFields?: Record<string, unknown>;
+  worklogTimespent?: string;
 }
 
 /**
- * Input for creating a ticket
+ * Input for creating a ticket.
  */
 export interface TicketCreateInput {
   subject: string;
-  description?: string;
-  priority: TicketPriority;
-  type?: TicketType;
-  source?: TicketSource;
-  dueDate?: string | Date;
-  clientId: string;
+  ticketType?: string;
+  requestType?: string;
+  source?: string;
+  clientId?: string;
   siteId?: string;
-  assetId?: string;
+  requesterId?: string;
   technicianId?: string;
-  queueId?: string;
-  tags?: string[];
+  techGroupId?: string;
+  priority?: string;
+  impact?: string;
+  urgency?: string;
+  category?: string;
+  subcategory?: string;
   customFields?: Record<string, unknown>;
+  // NOTE: unverified against live API - field names may vary
 }
 
 /**
- * Input for updating a ticket
+ * Input for updating a ticket.
  */
 export interface TicketUpdateInput {
   subject?: string;
-  description?: string;
-  priority?: TicketPriority;
-  type?: TicketType;
-  dueDate?: string | Date;
+  ticketType?: string;
+  requestType?: string;
+  source?: string;
   clientId?: string;
   siteId?: string;
-  assetId?: string;
+  requesterId?: string;
   technicianId?: string;
-  queueId?: string;
-  tags?: string[];
+  techGroupId?: string;
+  status?: string;
+  priority?: string;
+  impact?: string;
+  urgency?: string;
+  category?: string;
+  subcategory?: string;
+  cause?: string;
+  subcause?: string;
+  resolutionCode?: string;
   customFields?: Record<string, unknown>;
-}
-
-/**
- * Input for adding a time entry to a ticket
- */
-export interface TimeEntryInput {
-  startTime: string | Date;
-  endTime?: string | Date;
-  durationMinutes?: number;
-  description?: string;
-  billable?: boolean;
-  technicianId?: string;
-}
-
-/**
- * Ticket filter options
- */
-export interface TicketFilter {
-  status?: TicketStatus | TicketStatus[];
-  priority?: TicketPriority | TicketPriority[];
-  type?: TicketType | TicketType[];
-  source?: TicketSource | TicketSource[];
-  clientId?: string;
-  siteId?: string;
-  technicianId?: string;
-  queueId?: string;
-  searchQuery?: string;
-  createdAfter?: string | Date;
-  createdBefore?: string | Date;
-  dueBefore?: string | Date;
-  dueAfter?: string | Date;
-  tags?: string[];
-}
-
-/**
- * Ticket order by fields
- */
-export type TicketOrderField =
-  | 'SUBJECT'
-  | 'STATUS'
-  | 'PRIORITY'
-  | 'CREATED_AT'
-  | 'UPDATED_AT'
-  | 'DUE_DATE';
-
-/**
- * Ticket order by configuration
- */
-export interface TicketOrderBy {
-  field: TicketOrderField;
-  direction: OrderDirection;
+  // NOTE: unverified against live API - field names may vary
 }

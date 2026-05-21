@@ -1,74 +1,108 @@
 /**
- * Tickets resource for SuperOps API
+ * Tickets resource for the SuperOps MSP API.
  */
 
-import { BaseResource, prepareFilter, type BaseResourceOptions } from './base.js';
+import { BaseResource, type BaseResourceOptions } from './base.js';
 import { gql } from '../graphql-client.js';
 import type {
   Ticket,
   TicketCreateInput,
   TicketUpdateInput,
-  TicketFilter,
-  TicketOrderBy,
-  TicketStatus,
-  TimeEntryInput,
-  TicketNote,
-  TicketTimeEntry,
-  Connection,
-  ListParams,
+  Page,
+  PageParams,
   AsyncIterableWithHelpers,
 } from '../types/index.js';
 
 /**
- * GraphQL fragments for tickets
+ * GraphQL selection set for a ticket. Fields match the SuperOps `Ticket` type.
  */
 const TICKET_FRAGMENT = gql`
   fragment TicketFields on Ticket {
-    id
+    ticketId
+    displayId
     subject
-    description
-    status
-    priority
-    type
+    ticketType
+    requestType
     source
-    dueDate
-    resolvedAt
-    closedAt
-    firstResponseAt
-    clientId
-    siteId
-    assetId
-    technicianId
-    queueId
-    createdAt
-    updatedAt
     client {
-      id
+      accountId
       name
     }
     site {
       id
       name
     }
-    asset {
+    requester {
+      userId
+      name
+      email
+    }
+    additionalRequester {
+      userId
+      name
+      email
+    }
+    followers
+    techGroup {
       id
       name
     }
     technician {
-      id
+      userId
       name
       email
     }
-    queue {
+    status
+    priority
+    impact
+    urgency
+    category
+    subcategory
+    cause
+    subcause
+    resolutionCode
+    sla {
       id
       name
     }
-    tags
+    createdTime
+    updatedTime
+    firstResponseDueTime
+    firstResponseTime
+    firstResponseViolated
+    resolutionDueTime
+    resolutionTime
+    resolutionViolated
+    customFields
+    worklogTimespent
   }
 `;
 
+interface GetTicketResponse {
+  getTicket: Ticket;
+}
+
+interface GetTicketListResponse {
+  getTicketList: {
+    tickets: Ticket[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface CreateTicketResponse {
+  createTicket: Ticket;
+}
+
+interface UpdateTicketResponse {
+  updateTicket: Ticket;
+}
+
 /**
- * Tickets resource class
+ * Tickets resource class.
  */
 export class TicketsResource extends BaseResource {
   constructor(options: BaseResourceOptions) {
@@ -76,368 +110,99 @@ export class TicketsResource extends BaseResource {
   }
 
   /**
-   * Get a single ticket by ID
+   * Get a single ticket by its ticket ID.
    */
-  async get(id: string): Promise<Ticket> {
+  async get(ticketId: string): Promise<Ticket> {
     const query = gql`
       ${TICKET_FRAGMENT}
-      query GetTicket($id: ID!) {
-        getTicket(id: $id) {
+      query GetTicket($input: TicketIdentifierInput!) {
+        getTicket(input: $input) {
           ...TicketFields
-          notes {
-            id
-            content
-            isPublic
-            createdAt
-            createdBy {
-              id
-              name
-            }
-          }
-          timeEntries {
-            id
-            startTime
-            endTime
-            durationMinutes
-            description
-            billable
-            technicianId
-            technician {
-              id
-              name
-            }
-          }
         }
       }
     `;
 
-    const result = await this.client.query<{ getTicket: Ticket }>(query, { id });
+    const result = await this.client.query<GetTicketResponse>(query, {
+      input: { ticketId },
+    });
     return result.getTicket;
   }
 
   /**
-   * List tickets with pagination and filtering
+   * List tickets, one page at a time.
    */
-  async list(
-    params?: ListParams<TicketFilter, TicketOrderBy>
-  ): Promise<Connection<Ticket>> {
+  async list(params?: PageParams): Promise<Page<Ticket>> {
     const query = gql`
       ${TICKET_FRAGMENT}
-      query GetTicketList(
-        $first: Int
-        $after: String
-        $filter: TicketFilterInput
-        $orderBy: TicketOrderInput
-      ) {
-        getTicketList(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-          edges {
-            node {
-              ...TicketFields
-            }
-            cursor
+      query GetTicketList($input: ListInfoInput!) {
+        getTicketList(input: $input) {
+          tickets {
+            ...TicketFields
           }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
+          listInfo {
+            page
+            pageSize
+            totalCount
           }
-          totalCount
         }
       }
     `;
 
-    const variables = {
-      first: params?.first ?? 50,
-      after: params?.after,
-      filter: prepareFilter(params?.filter),
-      orderBy: params?.orderBy,
+    const result = await this.client.query<GetTicketListResponse>(query, {
+      input: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
+    });
+
+    return {
+      items: result.getTicketList.tickets,
+      meta: result.getTicketList.listInfo,
     };
-
-    const result = await this.client.query<{ getTicketList: Connection<Ticket> }>(query, variables);
-    return result.getTicketList;
   }
 
   /**
-   * List all tickets with automatic pagination
+   * Iterate every ticket, fetching pages on demand.
    */
-  listAll(
-    params?: Omit<ListParams<TicketFilter, TicketOrderBy>, 'first' | 'after'>
-  ): AsyncIterableWithHelpers<Ticket> {
-    return this.createListIterator<Ticket, TicketFilter, TicketOrderBy>(
-      (p) => this.list(p),
-      params
-    );
+  listAll(params?: { pageSize?: number }): AsyncIterableWithHelpers<Ticket> {
+    return this.createPageListIterator<Ticket>((p) => this.list(p), params?.pageSize);
   }
 
   /**
-   * List tickets by client ID
-   */
-  async listByClient(
-    clientId: string,
-    params?: Omit<ListParams<TicketFilter, TicketOrderBy>, 'filter'>
-  ): Promise<Connection<Ticket>> {
-    const query = gql`
-      ${TICKET_FRAGMENT}
-      query GetTicketsByClient(
-        $clientId: ID!
-        $first: Int
-        $after: String
-        $orderBy: TicketOrderInput
-      ) {
-        getTicketsByClient(clientId: $clientId, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...TicketFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      clientId,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ getTicketsByClient: Connection<Ticket> }>(
-      query,
-      variables
-    );
-    return result.getTicketsByClient;
-  }
-
-  /**
-   * List tickets by status
-   */
-  async listByStatus(
-    status: TicketStatus,
-    params?: Omit<ListParams<TicketFilter, TicketOrderBy>, 'filter'>
-  ): Promise<Connection<Ticket>> {
-    const query = gql`
-      ${TICKET_FRAGMENT}
-      query GetTicketsByStatus(
-        $status: TicketStatus!
-        $first: Int
-        $after: String
-        $orderBy: TicketOrderInput
-      ) {
-        getTicketsByStatus(status: $status, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...TicketFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      status,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ getTicketsByStatus: Connection<Ticket> }>(
-      query,
-      variables
-    );
-    return result.getTicketsByStatus;
-  }
-
-  /**
-   * List tickets by technician ID
-   */
-  async listByTechnician(
-    technicianId: string,
-    params?: Omit<ListParams<TicketFilter, TicketOrderBy>, 'filter'>
-  ): Promise<Connection<Ticket>> {
-    const query = gql`
-      ${TICKET_FRAGMENT}
-      query GetTicketsByTechnician(
-        $techId: ID!
-        $first: Int
-        $after: String
-        $orderBy: TicketOrderInput
-      ) {
-        getTicketsByTechnician(techId: $techId, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...TicketFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      techId: technicianId,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ getTicketsByTechnician: Connection<Ticket> }>(
-      query,
-      variables
-    );
-    return result.getTicketsByTechnician;
-  }
-
-  /**
-   * Create a new ticket
+   * Create a new ticket.
    */
   async create(input: TicketCreateInput): Promise<Ticket> {
     const mutation = gql`
       ${TICKET_FRAGMENT}
-      mutation CreateTicket($input: TicketInput!) {
+      mutation CreateTicket($input: CreateTicketInput!) {
         createTicket(input: $input) {
           ...TicketFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ createTicket: Ticket }>(mutation, { input });
+    const result = await this.client.mutate<CreateTicketResponse>(mutation, {
+      input,
+    });
     return result.createTicket;
   }
 
   /**
-   * Update an existing ticket
+   * Update an existing ticket.
    */
-  async update(id: string, input: TicketUpdateInput): Promise<Ticket> {
+  async update(ticketId: string, input: TicketUpdateInput): Promise<Ticket> {
     const mutation = gql`
       ${TICKET_FRAGMENT}
-      mutation UpdateTicket($id: ID!, $input: TicketInput!) {
-        updateTicket(id: $id, input: $input) {
+      mutation UpdateTicket($input: UpdateTicketInput!) {
+        updateTicket(input: $input) {
           ...TicketFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ updateTicket: Ticket }>(mutation, { id, input });
+    const result = await this.client.mutate<UpdateTicketResponse>(mutation, {
+      input: { ticketId, ...input },
+    });
     return result.updateTicket;
-  }
-
-  /**
-   * Add a note to a ticket
-   */
-  async addNote(ticketId: string, note: string, isPublic: boolean = false): Promise<TicketNote> {
-    const mutation = gql`
-      mutation AddTicketNote($ticketId: ID!, $note: String!, $isPublic: Boolean) {
-        addTicketNote(ticketId: $ticketId, note: $note, isPublic: $isPublic) {
-          id
-          content
-          isPublic
-          createdAt
-          createdBy {
-            id
-            name
-          }
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ addTicketNote: TicketNote }>(mutation, {
-      ticketId,
-      note,
-      isPublic,
-    });
-    return result.addTicketNote;
-  }
-
-  /**
-   * Add a time entry to a ticket
-   */
-  async addTimeEntry(ticketId: string, input: TimeEntryInput): Promise<TicketTimeEntry> {
-    const mutation = gql`
-      mutation AddTicketTimeEntry($ticketId: ID!, $input: TimeEntryInput!) {
-        addTicketTimeEntry(ticketId: $ticketId, input: $input) {
-          id
-          startTime
-          endTime
-          durationMinutes
-          description
-          billable
-          technicianId
-          technician {
-            id
-            name
-          }
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ addTicketTimeEntry: TicketTimeEntry }>(mutation, {
-      ticketId,
-      input,
-    });
-    return result.addTicketTimeEntry;
-  }
-
-  /**
-   * Change ticket status
-   */
-  async changeStatus(id: string, status: TicketStatus): Promise<Ticket> {
-    const mutation = gql`
-      ${TICKET_FRAGMENT}
-      mutation ChangeTicketStatus($id: ID!, $status: TicketStatus!) {
-        changeTicketStatus(id: $id, status: $status) {
-          ...TicketFields
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ changeTicketStatus: Ticket }>(mutation, {
-      id,
-      status,
-    });
-    return result.changeTicketStatus;
-  }
-
-  /**
-   * Assign ticket to a technician
-   */
-  async assign(id: string, technicianId: string): Promise<Ticket> {
-    const mutation = gql`
-      ${TICKET_FRAGMENT}
-      mutation AssignTicket($id: ID!, $technicianId: ID!) {
-        assignTicket(id: $id, technicianId: $technicianId) {
-          ...TicketFields
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ assignTicket: Ticket }>(mutation, {
-      id,
-      technicianId,
-    });
-    return result.assignTicket;
   }
 }

@@ -7,7 +7,7 @@ Comprehensive, fully-typed Node.js/TypeScript library for the SuperOps.ai GraphQ
 - **Complete API coverage** - All SuperOps.ai queries and mutations
 - **Strong TypeScript types** - Full type definitions for all resources
 - **GraphQL abstraction** - Method-based access without writing raw GraphQL
-- **Automatic pagination** - Async iterators for cursor-based pagination
+- **Automatic pagination** - Async iterators for page-based pagination
 - **Rate limit handling** - Built-in request throttling (800 req/min)
 - **Multi-region support** - US and EU endpoints for MSP and IT verticals
 - **Zero live API testing** - Full test suite with mocked GraphQL responses
@@ -33,14 +33,12 @@ const client = new SuperOpsClient({
 // Get an asset
 const asset = await client.assets.get('asset-123');
 
-// List tickets with filters
+// List tickets with pagination
 const tickets = await client.tickets.list({
-  first: 50,
-  filter: {
-    status: ['OPEN'],
-    priority: 'HIGH',
-  },
+  page: 1,
+  pageSize: 50,
 });
+console.log(tickets.items, tickets.meta.totalCount);
 
 // Auto-paginate through all clients
 for await (const clientRecord of client.clients.listAll()) {
@@ -112,9 +110,6 @@ const updated = await client.assets.update('asset-123', {
 });
 ```
 
-> **Note:** Other resources (`tickets`, `clients`, `sites`, …) are still being
-> migrated to the real SuperOps schema — see the v2.0.0 tracking issue. Only
-> `assets` is verified against SuperOps' published API today.
 
 ### Tickets
 
@@ -122,21 +117,12 @@ const updated = await client.assets.update('asset-123', {
 // Get single ticket
 const ticket = await client.tickets.get('ticket-001');
 
-// List tickets with filtering
+// List tickets with pagination
 const result = await client.tickets.list({
-  first: 50,
-  filter: {
-    status: ['OPEN', 'IN_PROGRESS'],
-    priority: 'HIGH',
-    clientId: 'client-456',
-  },
+  page: 1,
+  pageSize: 50,
 });
-
-// List by status
-const openTickets = await client.tickets.listByStatus('OPEN');
-
-// List by technician
-const techTickets = await client.tickets.listByTechnician('tech-001');
+console.log(result.items, result.meta.totalCount);
 
 // Create ticket
 const newTicket = await client.tickets.create({
@@ -150,23 +136,6 @@ const newTicket = await client.tickets.create({
 await client.tickets.update('ticket-001', {
   priority: 'HIGH',
 });
-
-// Change status
-await client.tickets.changeStatus('ticket-001', 'IN_PROGRESS');
-
-// Assign ticket
-await client.tickets.assign('ticket-001', 'tech-002');
-
-// Add note
-await client.tickets.addNote('ticket-001', 'Investigating the issue', false);
-
-// Add time entry
-await client.tickets.addTimeEntry('ticket-001', {
-  startTime: new Date(),
-  durationMinutes: 30,
-  description: 'Initial investigation',
-  billable: true,
-});
 ```
 
 ### Clients
@@ -177,32 +146,21 @@ const clientRecord = await client.clients.get('client-456');
 
 // List clients
 const result = await client.clients.list({
-  filter: {
-    status: 'ACTIVE',
-    type: 'CUSTOMER',
-  },
+  page: 1,
+  pageSize: 50,
 });
-
-// Search clients
-const searchResults = await client.clients.search('Acme');
+console.log(result.items, result.meta.totalCount);
 
 // Create client
 const newClient = await client.clients.create({
   name: 'New Company',
-  type: 'CUSTOMER',
-  primaryContact: {
-    email: 'contact@company.com',
-    phone: '555-1234',
-  },
+  stage: 'PROSPECT',
 });
 
 // Update client
 await client.clients.update('client-456', {
-  website: 'https://company.com',
+  name: 'Updated Company Name',
 });
-
-// Archive client
-await client.clients.archive('client-456');
 ```
 
 ### Sites
@@ -211,27 +169,27 @@ await client.clients.archive('client-456');
 // Get site
 const site = await client.sites.get('site-789');
 
-// List sites by client
-const sites = await client.sites.listByClient('client-456');
+// List sites
+const sites = await client.sites.list({
+  page: 1,
+  pageSize: 50,
+});
+console.log(sites.items, sites.meta.totalCount);
 
 // Create site
-const newSite = await client.sites.create('client-456', {
+const newSite = await client.sites.create({
   name: 'Branch Office',
-  address: {
-    street1: '456 Oak Ave',
-    city: 'Othertown',
-    state: 'CA',
-    postalCode: '54321',
-  },
+  line1: '456 Oak Ave',
+  city: 'Othertown',
+  stateCode: 'CA',
+  postalCode: '54321',
+  clientId: 'client-456',
 });
 
 // Update site
 await client.sites.update('site-789', {
   name: 'Updated Branch Name',
 });
-
-// Delete site
-await client.sites.delete('site-789');
 ```
 
 ### Alerts
@@ -239,50 +197,51 @@ await client.sites.delete('site-789');
 ```typescript
 // List alerts
 const alerts = await client.alerts.list({
-  filter: {
-    status: 'OPEN',
-    severity: 'CRITICAL',
-  },
+  page: 1,
+  pageSize: 50,
 });
+console.log(alerts.items, alerts.meta.totalCount);
 
-// List by asset
-const assetAlerts = await client.alerts.listByAsset('asset-123');
-
-// List by client
-const clientAlerts = await client.alerts.listByClient('client-456');
-
-// List by severity
-const criticalAlerts = await client.alerts.listBySeverity('CRITICAL');
+// List alerts for a specific asset
+const assetAlerts = await client.alerts.listByAsset('asset-123', {
+  page: 1,
+  pageSize: 50,
+});
 
 // Create alert
 const newAlert = await client.alerts.create({
-  title: 'Disk Space Low',
-  message: 'Drive C: is at 95% capacity',
+  message: 'Disk Space Low',
+  description: 'Drive C: is at 95% capacity',
   severity: 'WARNING',
   assetId: 'asset-123',
 });
 
-// Acknowledge alert
-await client.alerts.acknowledge('alert-001');
-
-// Resolve alert
-await client.alerts.resolve('alert-001');
-
-// Dismiss alert
-await client.alerts.dismiss('alert-001');
+// Resolve alerts
+await client.alerts.resolve({
+  alertIds: ['alert-001'],
+  resolutionNote: 'Issue resolved',
+});
 ```
 
 ### Knowledge Base
 
 ```typescript
-// Get article
-const article = await client.knowledgeBase.getArticle('article-123');
+// Get a KB item (article or collection)
+const item = await client.knowledgeBase.get('item-123');
 
-// Get collection
-const collection = await client.knowledgeBase.getCollection('collection-456');
+// List KB items
+const items = await client.knowledgeBase.list({
+  page: 1,
+  pageSize: 50,
+});
+console.log(items.items, items.meta.totalCount);
 
-// Search knowledge base
-const results = await client.knowledgeBase.search('password reset');
+// Create article
+const newArticle = await client.knowledgeBase.createArticle({
+  name: 'How to Reset Passwords',
+  description: 'Step-by-step password reset guide',
+  parentId: 'collection-456',
+});
 
 // Create collection
 const newCollection = await client.knowledgeBase.createCollection({
@@ -290,121 +249,73 @@ const newCollection = await client.knowledgeBase.createCollection({
   description: 'Step-by-step guides',
 });
 
-// Create article
-const newArticle = await client.knowledgeBase.createArticle({
-  title: 'How to Reset Passwords',
-  content: '# Steps\n1. Go to settings...',
-  collectionId: 'collection-456',
-  tags: ['passwords', 'self-service'],
-});
-
 // Update article
-await client.knowledgeBase.updateArticle('article-123', {
-  content: '# Updated Steps...',
+await client.knowledgeBase.updateArticle({
+  itemId: 'article-123',
+  name: 'Updated Password Reset Guide',
+  description: 'Updated password reset steps',
 });
 
-// Publish article
-await client.knowledgeBase.publishArticle('article-123');
+// Delete article
+await client.knowledgeBase.deleteArticle({
+  itemId: 'article-123',
+});
 ```
 
-### Runbooks
+### Contracts
 
 ```typescript
-// Get runbook
-const runbook = await client.runbooks.get('runbook-123');
+// Get contract
+const contract = await client.contracts.get('contract-123');
 
-// List runbooks
-const runbooks = await client.runbooks.list({
-  filter: {
-    status: 'ACTIVE',
-    category: 'Maintenance',
-  },
+// List contracts
+const contracts = await client.contracts.list({
+  page: 1,
+  pageSize: 50,
 });
+console.log(contracts.items, contracts.meta.totalCount);
 
-// Execute runbook
-const execution = await client.runbooks.execute('runbook-123', [
-  'asset-001',
-  'asset-002',
-]);
-
-// Check execution status
-const status = await client.runbooks.getExecutionStatus(execution.id);
-console.log(status.progress.completed, status.progress.failed);
-```
-
-### Patches
-
-```typescript
-// List patches
-const patches = await client.patches.list({
-  filter: {
-    severity: 'CRITICAL',
-    status: 'AVAILABLE',
-  },
-});
-
-// List by asset
-const assetPatches = await client.patches.listByAsset('asset-123');
-
-// Get compliance report
-const report = await client.patches.getComplianceReport({
+// Create contract
+const newContract = await client.contracts.create({
   clientId: 'client-456',
-});
-
-// Approve patch
-await client.patches.approve('patch-001');
-
-// Schedule deployment
-const deployment = await client.patches.scheduleDeployment({
-  name: 'February Security Updates',
-  scheduledAt: new Date('2026-02-10T02:00:00Z'),
-  patchIds: ['patch-001', 'patch-002'],
-  assetIds: ['asset-001', 'asset-002'],
-  rebootPolicy: 'SCHEDULED',
-});
-```
-
-### Remote Sessions
-
-```typescript
-// Initiate remote session
-const session = await client.remoteSessions.initiate('asset-123', 'REMOTE_DESKTOP');
-
-// Get session info
-const sessionInfo = await client.remoteSessions.get(session.id);
-console.log(sessionInfo.connectionUrl);
-
-// Terminate session
-await client.remoteSessions.terminate(session.id);
-```
-
-### Reports
-
-```typescript
-// Get ticket metrics
-const ticketMetrics = await client.reports.ticketMetrics({
+  name: 'Annual Support Contract',
   startDate: '2026-01-01',
-  endDate: '2026-01-31',
+  endDate: '2026-12-31',
 });
 
-// Get asset summary
-const assetSummary = await client.reports.assetSummary({
-  clientId: 'client-456',
+// Update contract
+await client.contracts.update('contract-123', {
+  name: 'Updated Contract Name',
+});
+```
+
+### Technicians
+
+```typescript
+// List technicians
+const technicians = await client.technicians.list({
+  page: 1,
+  pageSize: 50,
+});
+console.log(technicians.items, technicians.meta.totalCount);
+
+// Create technician
+const newTechnician = await client.technicians.create({
+  firstName: 'John',
+  lastName: 'Doe',
+  email: 'john.doe@company.com',
+  role: 'Technician',
 });
 
-// Get technician performance
-const performance = await client.reports.technicianPerformance({
-  startDate: new Date('2026-01-01'),
-  endDate: new Date('2026-01-31'),
+// Update technician
+await client.technicians.update('tech-001', {
+  phoneNumber: '+1-555-0123',
 });
-
-// Get client health scores
-const healthScores = await client.reports.clientHealthScores();
 ```
 
 ## Pagination
 
-SuperOps.ai uses cursor-based pagination. The library provides async iterators for automatic pagination:
+SuperOps.ai uses page-based pagination. The library provides async iterators for automatic pagination:
 
 ```typescript
 // Auto-paginate all results
@@ -415,11 +326,8 @@ for await (const asset of client.assets.listAll()) {
 // Collect all into an array
 const allAssets = await client.assets.listAll().toArray();
 
-// With filters
-for await (const ticket of client.tickets.listAll({
-  filter: { status: 'OPEN' },
-  orderBy: { field: 'CREATED_AT', direction: 'DESC' },
-})) {
+// Custom page size for auto-pagination
+for await (const ticket of client.tickets.listAll({ pageSize: 100 })) {
   console.log(ticket.subject);
 }
 ```

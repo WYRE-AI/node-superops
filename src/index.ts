@@ -56,10 +56,6 @@ export {
   ContractsResource,
   TechniciansResource,
   KnowledgeBaseResource,
-  RunbooksResource,
-  PatchesResource,
-  RemoteSessionsResource,
-  ReportsResource,
 } from './resources/index.js';
 export type { BaseResourceOptions } from './resources/base.js';
 

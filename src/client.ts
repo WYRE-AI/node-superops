@@ -16,10 +16,6 @@ import {
   ContractsResource,
   TechniciansResource,
   KnowledgeBaseResource,
-  RunbooksResource,
-  PatchesResource,
-  RemoteSessionsResource,
-  ReportsResource,
 } from './resources/index.js';
 
 /**
@@ -42,14 +38,8 @@ import {
  * // Get an asset
  * const asset = await client.assets.get('asset-123');
  *
- * // List tickets with filters
- * const tickets = await client.tickets.list({
- *   first: 50,
- *   filter: {
- *     status: ['OPEN'],
- *     priority: 'HIGH',
- *   },
- * });
+ * // List tickets, one page at a time
+ * const tickets = await client.tickets.list({ page: 1, pageSize: 50 });
  *
  * // Auto-paginate through all clients
  * for await (const clientRecord of client.clients.listAll()) {
@@ -70,10 +60,6 @@ export class SuperOpsClient {
   public readonly contracts: ContractsResource;
   public readonly technicians: TechniciansResource;
   public readonly knowledgeBase: KnowledgeBaseResource;
-  public readonly runbooks: RunbooksResource;
-  public readonly patches: PatchesResource;
-  public readonly remoteSessions: RemoteSessionsResource;
-  public readonly reports: ReportsResource;
 
   /**
    * Create a new SuperOps API client
@@ -99,10 +85,6 @@ export class SuperOpsClient {
     this.contracts = new ContractsResource(resourceOptions);
     this.technicians = new TechniciansResource(resourceOptions);
     this.knowledgeBase = new KnowledgeBaseResource(resourceOptions);
-    this.runbooks = new RunbooksResource(resourceOptions);
-    this.patches = new PatchesResource(resourceOptions);
-    this.remoteSessions = new RemoteSessionsResource(resourceOptions);
-    this.reports = new ReportsResource(resourceOptions);
   }
 
   /**

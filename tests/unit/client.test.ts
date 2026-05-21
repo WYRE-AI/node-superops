@@ -44,10 +44,6 @@ describe('SuperOpsClient', () => {
       expect(client.contracts).toBeDefined();
       expect(client.technicians).toBeDefined();
       expect(client.knowledgeBase).toBeDefined();
-      expect(client.runbooks).toBeDefined();
-      expect(client.patches).toBeDefined();
-      expect(client.remoteSessions).toBeDefined();
-      expect(client.reports).toBeDefined();
     });
   });
 

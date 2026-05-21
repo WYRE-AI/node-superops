@@ -1,75 +1,77 @@
 /**
- * Clients resource for SuperOps API
+ * Clients resource for the SuperOps MSP API.
  */
 
-import { BaseResource, prepareFilter, type BaseResourceOptions } from './base.js';
+import { BaseResource, type BaseResourceOptions } from './base.js';
 import { gql } from '../graphql-client.js';
 import type {
   Client,
   ClientCreateInput,
   ClientUpdateInput,
-  ClientFilter,
-  ClientOrderBy,
-  Connection,
-  ListParams,
+  Page,
+  PageParams,
   AsyncIterableWithHelpers,
 } from '../types/index.js';
 
 /**
- * GraphQL fragments for clients
+ * GraphQL selection set for a client. Fields match the SuperOps `Client` type.
  */
 const CLIENT_FRAGMENT = gql`
   fragment ClientFields on Client {
-    id
+    accountId
     name
+    stage
     status
-    type
-    displayName
-    website
-    industry
-    notes
-    taxId
-    defaultTechnicianId
-    createdAt
-    updatedAt
+    emailDomains
+    accountManager {
+      userId
+      name
+    }
     primaryContact {
-      email
-      phone
-      mobile
-      fax
+      userId
+      name
     }
-    billingContact {
-      email
-      phone
-      mobile
-      fax
+    secondaryContact {
+      userId
+      name
     }
-    address {
-      street1
-      street2
-      city
-      state
-      postalCode
-      country
-    }
-    billingAddress {
-      street1
-      street2
-      city
-      state
-      postalCode
-      country
-    }
-    defaultTechnician {
+    hqSite {
       id
       name
     }
-    tags
+    technicianGroups {
+      id
+      name
+    }
+    customFields
   }
 `;
 
+interface GetClientResponse {
+  getClient: Client;
+}
+
+interface GetClientListResponse {
+  getClientList: {
+    clients: Client[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface CreateClientResponse {
+  createClientV2: Client;
+}
+
+interface UpdateClientResponse {
+  updateClient: Client;
+}
+
 /**
- * Clients resource class
+ * Clients resource class.
  */
 export class ClientsResource extends BaseResource {
   constructor(options: BaseResourceOptions) {
@@ -77,172 +79,99 @@ export class ClientsResource extends BaseResource {
   }
 
   /**
-   * Get a single client by ID
+   * Get a single client by its account ID.
    */
-  async get(id: string): Promise<Client> {
+  async get(accountId: string): Promise<Client> {
     const query = gql`
       ${CLIENT_FRAGMENT}
-      query GetClient($id: ID!) {
-        getClient(id: $id) {
+      query GetClient($input: ClientIdentifierInput!) {
+        getClient(input: $input) {
           ...ClientFields
         }
       }
     `;
 
-    const result = await this.client.query<{ getClient: Client }>(query, { id });
+    const result = await this.client.query<GetClientResponse>(query, {
+      input: { accountId },
+    });
     return result.getClient;
   }
 
   /**
-   * List clients with pagination and filtering
+   * List clients, one page at a time.
    */
-  async list(
-    params?: ListParams<ClientFilter, ClientOrderBy>
-  ): Promise<Connection<Client>> {
+  async list(params?: PageParams): Promise<Page<Client>> {
     const query = gql`
       ${CLIENT_FRAGMENT}
-      query GetClientList(
-        $first: Int
-        $after: String
-        $filter: ClientFilterInput
-        $orderBy: ClientOrderInput
-      ) {
-        getClientList(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-          edges {
-            node {
-              ...ClientFields
-            }
-            cursor
+      query GetClientList($input: ListInfoInput!) {
+        getClientList(input: $input) {
+          clients {
+            ...ClientFields
           }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
+          listInfo {
+            page
+            pageSize
+            totalCount
           }
-          totalCount
         }
       }
     `;
 
-    const variables = {
-      first: params?.first ?? 50,
-      after: params?.after,
-      filter: prepareFilter(params?.filter),
-      orderBy: params?.orderBy,
+    const result = await this.client.query<GetClientListResponse>(query, {
+      input: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
+    });
+
+    return {
+      items: result.getClientList.clients,
+      meta: result.getClientList.listInfo,
     };
-
-    const result = await this.client.query<{ getClientList: Connection<Client> }>(query, variables);
-    return result.getClientList;
   }
 
   /**
-   * List all clients with automatic pagination
+   * Iterate every client, fetching pages on demand.
    */
-  listAll(
-    params?: Omit<ListParams<ClientFilter, ClientOrderBy>, 'first' | 'after'>
-  ): AsyncIterableWithHelpers<Client> {
-    return this.createListIterator<Client, ClientFilter, ClientOrderBy>(
-      (p) => this.list(p),
-      params
-    );
+  listAll(params?: { pageSize?: number }): AsyncIterableWithHelpers<Client> {
+    return this.createPageListIterator<Client>((p) => this.list(p), params?.pageSize);
   }
 
   /**
-   * Search clients by query string
-   */
-  async search(
-    query: string,
-    params?: Omit<ListParams<ClientFilter, ClientOrderBy>, 'filter'>
-  ): Promise<Connection<Client>> {
-    const gqlQuery = gql`
-      ${CLIENT_FRAGMENT}
-      query SearchClients(
-        $query: String!
-        $first: Int
-        $after: String
-        $orderBy: ClientOrderInput
-      ) {
-        searchClients(query: $query, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...ClientFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      query,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ searchClients: Connection<Client> }>(
-      gqlQuery,
-      variables
-    );
-    return result.searchClients;
-  }
-
-  /**
-   * Create a new client
+   * Create a new client.
    */
   async create(input: ClientCreateInput): Promise<Client> {
     const mutation = gql`
       ${CLIENT_FRAGMENT}
-      mutation CreateClient($input: ClientInput!) {
-        createClient(input: $input) {
+      mutation CreateClientV2($input: CreateClientInputV2!) {
+        createClientV2(input: $input) {
           ...ClientFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ createClient: Client }>(mutation, { input });
-    return result.createClient;
+    const result = await this.client.mutate<CreateClientResponse>(mutation, {
+      input,
+    });
+    return result.createClientV2;
   }
 
   /**
-   * Update an existing client
+   * Update an existing client.
    */
-  async update(id: string, input: ClientUpdateInput): Promise<Client> {
+  async update(accountId: string, input: ClientUpdateInput): Promise<Client> {
     const mutation = gql`
       ${CLIENT_FRAGMENT}
-      mutation UpdateClient($id: ID!, $input: ClientInput!) {
-        updateClient(id: $id, input: $input) {
+      mutation UpdateClient($input: UpdateClientInput!) {
+        updateClient(input: $input) {
           ...ClientFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ updateClient: Client }>(mutation, { id, input });
+    const result = await this.client.mutate<UpdateClientResponse>(mutation, {
+      input: { accountId, ...input },
+    });
     return result.updateClient;
-  }
-
-  /**
-   * Archive a client
-   */
-  async archive(id: string): Promise<Client> {
-    const mutation = gql`
-      ${CLIENT_FRAGMENT}
-      mutation ArchiveClient($id: ID!) {
-        archiveClient(id: $id) {
-          ...ClientFields
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ archiveClient: Client }>(mutation, { id });
-    return result.archiveClient;
   }
 }

@@ -1,70 +1,73 @@
 /**
- * Alerts resource for SuperOps API
+ * Alerts resource for the SuperOps MSP API.
  */
 
-import { BaseResource, prepareFilter, type BaseResourceOptions } from './base.js';
+import { BaseResource, type BaseResourceOptions } from './base.js';
 import { gql } from '../graphql-client.js';
 import type {
   Alert,
   AlertCreateInput,
-  AlertFilter,
-  AlertOrderBy,
-  AlertSeverity,
-  Connection,
-  ListParams,
+  AlertResolveInput,
+  Page,
+  PageParams,
   AsyncIterableWithHelpers,
 } from '../types/index.js';
 
 /**
- * GraphQL fragments for alerts
+ * GraphQL selection set for an alert. Fields match the SuperOps `Alert` type.
  */
 const ALERT_FRAGMENT = gql`
   fragment AlertFields on Alert {
     id
-    title
     message
-    status
+    description
     severity
-    category
-    source
-    acknowledgedAt
-    resolvedAt
-    dismissedAt
-    assetId
-    clientId
-    siteId
-    ticketId
-    createdAt
-    updatedAt
+    status
+    createdTime
+    resolvedTime
     asset {
-      id
+      assetId
       name
     }
-    client {
-      id
-      name
-    }
-    site {
-      id
-      name
-    }
-    ticket {
-      id
-      subject
-    }
-    acknowledgedBy {
-      id
-      name
-    }
-    resolvedBy {
+    policy {
       id
       name
     }
   }
 `;
 
+interface GetAlertListResponse {
+  getAlertList: {
+    alerts: Alert[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface GetAlertsForAssetResponse {
+  getAlertsForAsset: {
+    alerts: Alert[];
+    listInfo: {
+      page: number;
+      pageSize: number;
+      totalCount: number;
+    };
+  };
+}
+
+interface CreateAlertResponse {
+  createAlert: Alert;
+}
+
+interface ResolveAlertsResponse {
+  resolveAlerts: Alert[];
+}
+
 /**
- * Alerts resource class
+ * Alerts resource class.
  */
 export class AlertsResource extends BaseResource {
   constructor(options: BaseResourceOptions) {
@@ -72,266 +75,114 @@ export class AlertsResource extends BaseResource {
   }
 
   /**
-   * List alerts with pagination and filtering
+   * List alerts, one page at a time.
    */
-  async list(
-    params?: ListParams<AlertFilter, AlertOrderBy>
-  ): Promise<Connection<Alert>> {
+  async list(params?: PageParams): Promise<Page<Alert>> {
     const query = gql`
       ${ALERT_FRAGMENT}
-      query GetAlertList(
-        $first: Int
-        $after: String
-        $filter: AlertFilterInput
-        $orderBy: AlertOrderInput
-      ) {
-        getAlertList(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
-          edges {
-            node {
-              ...AlertFields
-            }
-            cursor
+      query GetAlertList($input: ListInfoInput!) {
+        getAlertList(input: $input) {
+          alerts {
+            ...AlertFields
           }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
+          listInfo {
+            page
+            pageSize
+            totalCount
           }
-          totalCount
         }
       }
     `;
 
-    const variables = {
-      first: params?.first ?? 50,
-      after: params?.after,
-      filter: prepareFilter(params?.filter),
-      orderBy: params?.orderBy,
+    const result = await this.client.query<GetAlertListResponse>(query, {
+      input: {
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
+    });
+
+    return {
+      items: result.getAlertList.alerts,
+      meta: result.getAlertList.listInfo,
     };
-
-    const result = await this.client.query<{ getAlertList: Connection<Alert> }>(query, variables);
-    return result.getAlertList;
   }
 
   /**
-   * List all alerts with automatic pagination
+   * Iterate every alert, fetching pages on demand.
    */
-  listAll(
-    params?: Omit<ListParams<AlertFilter, AlertOrderBy>, 'first' | 'after'>
-  ): AsyncIterableWithHelpers<Alert> {
-    return this.createListIterator<Alert, AlertFilter, AlertOrderBy>(
-      (p) => this.list(p),
-      params
-    );
+  listAll(params?: { pageSize?: number }): AsyncIterableWithHelpers<Alert> {
+    return this.createPageListIterator<Alert>((p) => this.list(p), params?.pageSize);
   }
 
   /**
-   * List alerts for a specific asset
+   * List alerts for a specific asset.
    */
-  async listByAsset(
-    assetId: string,
-    params?: Omit<ListParams<AlertFilter, AlertOrderBy>, 'filter'>
-  ): Promise<Connection<Alert>> {
+  async listByAsset(assetId: string, params?: PageParams): Promise<Page<Alert>> {
     const query = gql`
       ${ALERT_FRAGMENT}
-      query GetAlertsForAsset(
-        $assetId: ID!
-        $first: Int
-        $after: String
-        $orderBy: AlertOrderInput
-      ) {
-        getAlertsForAsset(assetId: $assetId, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...AlertFields
-            }
-            cursor
+      query GetAlertsForAsset($input: AssetDetailsListInput!) {
+        getAlertsForAsset(input: $input) {
+          alerts {
+            ...AlertFields
           }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
+          listInfo {
+            page
+            pageSize
+            totalCount
           }
-          totalCount
         }
       }
     `;
 
-    const variables = {
-      assetId,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
+    const result = await this.client.query<GetAlertsForAssetResponse>(query, {
+      input: {
+        assetId,
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 50,
+      },
+    });
 
-    const result = await this.client.query<{ getAlertsForAsset: Connection<Alert> }>(
-      query,
-      variables
-    );
-    return result.getAlertsForAsset;
+    return {
+      items: result.getAlertsForAsset.alerts,
+      meta: result.getAlertsForAsset.listInfo,
+    };
   }
 
   /**
-   * List alerts for a specific client
-   */
-  async listByClient(
-    clientId: string,
-    params?: Omit<ListParams<AlertFilter, AlertOrderBy>, 'filter'>
-  ): Promise<Connection<Alert>> {
-    const query = gql`
-      ${ALERT_FRAGMENT}
-      query GetAlertsByClient(
-        $clientId: ID!
-        $first: Int
-        $after: String
-        $orderBy: AlertOrderInput
-      ) {
-        getAlertsByClient(clientId: $clientId, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...AlertFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      clientId,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ getAlertsByClient: Connection<Alert> }>(
-      query,
-      variables
-    );
-    return result.getAlertsByClient;
-  }
-
-  /**
-   * List alerts by severity
-   */
-  async listBySeverity(
-    severity: AlertSeverity,
-    params?: Omit<ListParams<AlertFilter, AlertOrderBy>, 'filter'>
-  ): Promise<Connection<Alert>> {
-    const query = gql`
-      ${ALERT_FRAGMENT}
-      query GetAlertsBySeverity(
-        $severity: AlertSeverity!
-        $first: Int
-        $after: String
-        $orderBy: AlertOrderInput
-      ) {
-        getAlertsBySeverity(severity: $severity, first: $first, after: $after, orderBy: $orderBy) {
-          edges {
-            node {
-              ...AlertFields
-            }
-            cursor
-          }
-          pageInfo {
-            hasNextPage
-            hasPreviousPage
-            startCursor
-            endCursor
-          }
-          totalCount
-        }
-      }
-    `;
-
-    const variables = {
-      severity,
-      first: params?.first ?? 50,
-      after: params?.after,
-      orderBy: params?.orderBy,
-    };
-
-    const result = await this.client.query<{ getAlertsBySeverity: Connection<Alert> }>(
-      query,
-      variables
-    );
-    return result.getAlertsBySeverity;
-  }
-
-  /**
-   * Create a new alert
+   * Create a new alert.
    */
   async create(input: AlertCreateInput): Promise<Alert> {
     const mutation = gql`
       ${ALERT_FRAGMENT}
-      mutation CreateAlert($input: AlertInput!) {
+      mutation CreateAlert($input: CreateAlertInput!) {
         createAlert(input: $input) {
           ...AlertFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ createAlert: Alert }>(mutation, { input });
+    const result = await this.client.mutate<CreateAlertResponse>(mutation, {
+      input,
+    });
     return result.createAlert;
   }
 
   /**
-   * Acknowledge an alert
+   * Resolve one or more alerts.
    */
-  async acknowledge(id: string): Promise<Alert> {
+  async resolve(input: AlertResolveInput): Promise<Alert[]> {
     const mutation = gql`
       ${ALERT_FRAGMENT}
-      mutation AcknowledgeAlert($id: ID!) {
-        acknowledgeAlert(id: $id) {
+      mutation ResolveAlerts($input: ResolveAlertInput!) {
+        resolveAlerts(input: $input) {
           ...AlertFields
         }
       }
     `;
 
-    const result = await this.client.mutate<{ acknowledgeAlert: Alert }>(mutation, { id });
-    return result.acknowledgeAlert;
-  }
-
-  /**
-   * Resolve an alert
-   */
-  async resolve(id: string): Promise<Alert> {
-    const mutation = gql`
-      ${ALERT_FRAGMENT}
-      mutation ResolveAlert($id: ID!) {
-        resolveAlert(id: $id) {
-          ...AlertFields
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ resolveAlert: Alert }>(mutation, { id });
-    return result.resolveAlert;
-  }
-
-  /**
-   * Dismiss an alert
-   */
-  async dismiss(id: string): Promise<Alert> {
-    const mutation = gql`
-      ${ALERT_FRAGMENT}
-      mutation DismissAlert($id: ID!) {
-        dismissAlert(id: $id) {
-          ...AlertFields
-        }
-      }
-    `;
-
-    const result = await this.client.mutate<{ dismissAlert: Alert }>(mutation, { id });
-    return result.dismissAlert;
+    const result = await this.client.mutate<ResolveAlertsResponse>(mutation, {
+      input,
+    });
+    return result.resolveAlerts;
   }
 }

@@ -12,7 +12,3 @@ export * from './alerts.js';
 export * from './contracts.js';
 export * from './technicians.js';
 export * from './knowledge-base.js';
-export * from './runbooks.js';
-export * from './patches.js';
-export * from './remote-sessions.js';
-export * from './reports.js';
