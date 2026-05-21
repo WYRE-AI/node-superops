@@ -1,3 +1,17 @@
+# [3.0.0](https://github.com/wyre-technology/node-superops/compare/v2.0.0...v3.0.0) (2026-05-21)
+
+
+### Features
+
+* migrate all resources to the real SuperOps GraphQL schema ([#9](https://github.com/wyre-technology/node-superops/issues/9)) ([193786c](https://github.com/wyre-technology/node-superops/commit/193786ce5a9f1b5335ea5c3362ee6ffc03809eb6)), closes [#7](https://github.com/wyre-technology/node-superops/issues/7)
+
+
+### BREAKING CHANGES
+
+* all resource APIs changed to match SuperOps' real
+GraphQL schema; list methods return page-based Page<T>; the runbooks,
+patches, remoteSessions and reports resources were removed.
+
 # [2.0.0](https://github.com/wyre-technology/node-superops/compare/v1.0.5...v2.0.0) (2026-05-20)
 
 
