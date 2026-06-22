@@ -1,3 +1,10 @@
+## [3.0.1](https://github.com/wyre-technology/node-superops/compare/v3.0.0...v3.0.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **tsconfig:** restore include/exclude globs ([#45](https://github.com/wyre-technology/node-superops/issues/45)) ([4c8a74f](https://github.com/wyre-technology/node-superops/commit/4c8a74f1a0e01afa6851fb95636ceb27921060a5))
+
 # [3.0.0](https://github.com/wyre-technology/node-superops/compare/v2.0.0...v3.0.0) (2026-05-21)
 
 
