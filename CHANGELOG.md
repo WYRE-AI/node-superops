@@ -1,3 +1,10 @@
+## [3.0.2](https://github.com/wyre-technology/node-superops/compare/v3.0.1...v3.0.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* **deps:** ignore unreachable ip-address advisory in dependabot config ([#69](https://github.com/wyre-technology/node-superops/issues/69)) ([40d3bb4](https://github.com/wyre-technology/node-superops/commit/40d3bb4d456c7825764aa768e423020d194149b0))
+
 ## [3.0.1](https://github.com/wyre-technology/node-superops/compare/v3.0.0...v3.0.1) (2026-06-22)
 
 
