@@ -29,6 +29,29 @@ updates:
         update-types: ["minor", "patch"]
     # Production MAJORS are intentionally NOT grouped → individual PRs, held for
     # human review (never auto-merged).
+    ignore:
+      # ip-address (GHSA, affects <=10.3.0) is unreachable, not unaddressed.
+      # It's nested 3 deep: @semantic-release/npm -> npm (bundled) -> socks ->
+      # ip-address@10.2.0. `npm` ships with bundleDependencies covering its
+      # entire tree, so it's vendored/pre-resolved at publish time — verified
+      # empirically 2026-08-06 (on node-ninjaone) that a package.json
+      # `overrides` pin has ZERO effect on this path
+      # (node_modules/npm/node_modules/ip-address stayed at 10.2.0 after npm
+      # install with the override in place). No amount of top-level
+      # dependency management in THIS repo can reach it; only a new `npm`
+      # release bundling a patched socks/ip-address closes this. Without this
+      # ignore, Dependabot's daily Security job retries and fails
+      # (security_update_not_possible) every day, which is worse than silent —
+      # a permanently-red scheduled job trains everyone to stop looking at it,
+      # which could mask an unrelated, actually-fixable advisory later.
+      # The underlying GHSA alert stays open/visible on the repo's Security >
+      # Dependabot alerts tab regardless of this ignore — this only stops the
+      # doomed daily PR-open attempt, it does not dismiss the vulnerability.
+      # Revisit: no automatic re-check exists for an `ignore` rule — periodically
+      # confirm whether a newer npm (check `npm view npm dependencies` chain,
+      # or just remove this ignore and see if Dependabot succeeds) bundles a
+      # fixed ip-address, then remove this block.
+      - dependency-name: "ip-address"
 
   - package-ecosystem: "github-actions"
     directory: "/"
