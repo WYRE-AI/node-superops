@@ -1,5 +1,5 @@
 {
-  "name": "@wyre-technology/node-superops",
+  "name": "@wyre-ai/node-superops",
   "version": "3.0.2",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -35,7 +35,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wyre-technology/node-superops.git"
+    "url": "git+https://github.com/WYRE-AI/node-superops.git"
   },
   "keywords": [
     "superops",
@@ -50,9 +50,9 @@
   "author": "Aaron Sachs / WYRE Technology",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/wyre-technology/node-superops/issues"
+    "url": "https://github.com/WYRE-AI/node-superops/issues"
   },
-  "homepage": "https://github.com/wyre-technology/node-superops#readme",
+  "homepage": "https://github.com/WYRE-AI/node-superops#readme",
   "engines": {
     "node": ">=22.0.0"
   },
