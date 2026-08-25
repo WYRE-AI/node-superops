@@ -1,23 +1,23 @@
-## [3.0.2](https://github.com/wyre-technology/node-superops/compare/v3.0.1...v3.0.2) (2026-08-06)
+## [3.0.2](https://github.com/WYRE-AI/node-superops/compare/v3.0.1...v3.0.2) (2026-08-06)
 
 
 ### Bug Fixes
 
-* **deps:** ignore unreachable ip-address advisory in dependabot config ([#69](https://github.com/wyre-technology/node-superops/issues/69)) ([40d3bb4](https://github.com/wyre-technology/node-superops/commit/40d3bb4d456c7825764aa768e423020d194149b0))
+* **deps:** ignore unreachable ip-address advisory in dependabot config ([#69](https://github.com/WYRE-AI/node-superops/issues/69)) ([40d3bb4](https://github.com/WYRE-AI/node-superops/commit/40d3bb4d456c7825764aa768e423020d194149b0))
 
-## [3.0.1](https://github.com/wyre-technology/node-superops/compare/v3.0.0...v3.0.1) (2026-06-22)
+## [3.0.1](https://github.com/WYRE-AI/node-superops/compare/v3.0.0...v3.0.1) (2026-06-22)
 
 
 ### Bug Fixes
 
-* **tsconfig:** restore include/exclude globs ([#45](https://github.com/wyre-technology/node-superops/issues/45)) ([4c8a74f](https://github.com/wyre-technology/node-superops/commit/4c8a74f1a0e01afa6851fb95636ceb27921060a5))
+* **tsconfig:** restore include/exclude globs ([#45](https://github.com/WYRE-AI/node-superops/issues/45)) ([4c8a74f](https://github.com/WYRE-AI/node-superops/commit/4c8a74f1a0e01afa6851fb95636ceb27921060a5))
 
-# [3.0.0](https://github.com/wyre-technology/node-superops/compare/v2.0.0...v3.0.0) (2026-05-21)
+# [3.0.0](https://github.com/WYRE-AI/node-superops/compare/v2.0.0...v3.0.0) (2026-05-21)
 
 
 ### Features
 
-* migrate all resources to the real SuperOps GraphQL schema ([#9](https://github.com/wyre-technology/node-superops/issues/9)) ([193786c](https://github.com/wyre-technology/node-superops/commit/193786ce5a9f1b5335ea5c3362ee6ffc03809eb6)), closes [#7](https://github.com/wyre-technology/node-superops/issues/7)
+* migrate all resources to the real SuperOps GraphQL schema ([#9](https://github.com/WYRE-AI/node-superops/issues/9)) ([193786c](https://github.com/WYRE-AI/node-superops/commit/193786ce5a9f1b5335ea5c3362ee6ffc03809eb6)), closes [#7](https://github.com/WYRE-AI/node-superops/issues/7)
 
 
 ### BREAKING CHANGES
@@ -26,12 +26,12 @@
 GraphQL schema; list methods return page-based Page<T>; the runbooks,
 patches, remoteSessions and reports resources were removed.
 
-# [2.0.0](https://github.com/wyre-technology/node-superops/compare/v1.0.5...v2.0.0) (2026-05-20)
+# [2.0.0](https://github.com/WYRE-AI/node-superops/compare/v1.0.5...v2.0.0) (2026-05-20)
 
 
 ### Bug Fixes
 
-* rewrite assets resource against the real SuperOps schema ([#8](https://github.com/wyre-technology/node-superops/issues/8)) ([f61fe25](https://github.com/wyre-technology/node-superops/commit/f61fe2528815525232c479bb3f3b33fcb2c5bf5f)), closes [#4](https://github.com/wyre-technology/node-superops/issues/4)
+* rewrite assets resource against the real SuperOps schema ([#8](https://github.com/WYRE-AI/node-superops/issues/8)) ([f61fe25](https://github.com/WYRE-AI/node-superops/commit/f61fe2528815525232c479bb3f3b33fcb2c5bf5f)), closes [#4](https://github.com/WYRE-AI/node-superops/issues/4)
 
 
 ### BREAKING CHANGES
@@ -40,20 +40,20 @@ patches, remoteSessions and reports resources were removed.
 SuperOps' real GraphQL schema; assets.list() now returns a page-based
 Page<Asset> instead of a cursor Connection.
 
-## [1.0.5](https://github.com/wyre-technology/node-superops/compare/v1.0.4...v1.0.5) (2026-05-20)
+## [1.0.5](https://github.com/WYRE-AI/node-superops/compare/v1.0.4...v1.0.5) (2026-05-20)
 
 
 ### Bug Fixes
 
-* correct exports map and add package smoke test ([#3](https://github.com/wyre-technology/node-superops/issues/3)) ([d36fdd8](https://github.com/wyre-technology/node-superops/commit/d36fdd861ced3dcf09cb7869918deecbffad6464)), closes [#2](https://github.com/wyre-technology/node-superops/issues/2)
+* correct exports map and add package smoke test ([#3](https://github.com/WYRE-AI/node-superops/issues/3)) ([d36fdd8](https://github.com/WYRE-AI/node-superops/commit/d36fdd861ced3dcf09cb7869918deecbffad6464)), closes [#2](https://github.com/WYRE-AI/node-superops/issues/2)
 
-## [1.0.4](https://github.com/wyre-technology/node-superops/compare/v1.0.3...v1.0.4) (2026-03-02)
+## [1.0.4](https://github.com/WYRE-AI/node-superops/compare/v1.0.3...v1.0.4) (2026-03-02)
 
 
 ### Bug Fixes
 
-* require Node 22+ (semantic-release@25 compatibility) ([d8b98da](https://github.com/wyre-technology/node-superops/commit/d8b98dac8284c93ae3f644ed2199d54ff5691191))
-* require Node 22+ (semantic-release@25 compatibility) ([4f80032](https://github.com/wyre-technology/node-superops/commit/4f8003260176c3b234a63ce01df85b7bb9558448))
+* require Node 22+ (semantic-release@25 compatibility) ([d8b98da](https://github.com/WYRE-AI/node-superops/commit/d8b98dac8284c93ae3f644ed2199d54ff5691191))
+* require Node 22+ (semantic-release@25 compatibility) ([4f80032](https://github.com/WYRE-AI/node-superops/commit/4f8003260176c3b234a63ce01df85b7bb9558448))
 
 ## [1.0.3](https://github.com/asachs01/node-superops/compare/v1.0.2...v1.0.3) (2026-02-05)
 
