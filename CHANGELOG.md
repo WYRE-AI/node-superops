@@ -1,3 +1,11 @@
+## [3.0.3](https://github.com/WYRE-AI/node-superops/compare/v3.0.2...v3.0.3) (2026-08-25)
+
+
+### Bug Fixes
+
+* **deps:** ignore undici in dependabot -- nested unreachable copy in npm's bundled tree ([#76](https://github.com/WYRE-AI/node-superops/issues/76)) ([ba70a43](https://github.com/WYRE-AI/node-superops/commit/ba70a43a979b4d3cc9946f902fba8eacc7ffca77))
+* migrate to WYRE-AI org (npm scope, ghcr namespace, registry) ([#78](https://github.com/WYRE-AI/node-superops/issues/78)) ([85d6e22](https://github.com/WYRE-AI/node-superops/commit/85d6e22060fc15247ba61d6109bff46b4e790f25))
+
 ## [3.0.2](https://github.com/WYRE-AI/node-superops/compare/v3.0.1...v3.0.2) (2026-08-06)
 
 
