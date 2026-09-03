@@ -1,11 +1,58 @@
 name: Release
 
+# PR-based release flow (task_1788457898992, Aaron ruling "pipeline: pr-flow").
+# Branch protection now requires a PR on main; @semantic-release/git's direct
+# push was failing with GH006. Design doc:
+# orgs/wyre/deliverables/forge/task_1788457898992_56617697/design-pr-flow-release.md
+#
+# ONE job, two modes, chosen by comparing package.json's version against the
+# latest git tag at the start of every run:
+#   - no tag for the current version  -> PUBLISH mode: a release PR was just
+#     merged (package.json is already bumped, nothing left but to ship it).
+#     Tag, npm publish, create the GitHub release.
+#   - tag already exists              -> PREPARE mode: steady state. Check
+#     via semantic-release's --dry-run Node API whether new work warrants a
+#     release; if so, bump package.json/CHANGELOG.md and open/update a
+#     "chore(release): vX.Y.Z" PR. Publishes nothing.
+#
+# ORIGINAL DESIGN HAD THIS AS TWO SEPARATE WORKFLOWS, gated by
+# `startsWith(github.event.head_commit.message, 'chore(release): ')`.
+# REAL BUG (murph, caught in review before this ever merged): that string
+# only appears in the push event for a rebase merge, or a squash merge whose
+# title happens to match verbatim. This repo (like the others in scope) has
+# all three merge methods enabled with GitHub's default "Merge pull request
+# #N ..." commit-title format — the classic merge-commit button, still many
+# people's default, would silently never match, so a release PR could merge
+# clean and nothing would ever tag/publish/release. Same silent-failure
+# shape as the GH006 bug this whole effort exists to fix. Worse: BOTH
+# workflows shared the same flawed guard, so under the two-workflow design
+# there was also a race — if the prepare workflow happened to run again on
+# the same merge-commit push (guard failed to skip it) before the publish
+# workflow tagged the version, it would re-analyze the same commits and
+# could open a second, duplicate release PR with a duplicate CHANGELOG
+# entry. Collapsing to one job with a file-state check (not a commit-message
+# check) fixes both problems at once: there's no second workflow to race
+# against, and the mode decision doesn't depend on which merge button
+# someone clicked.
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+
+# Serializes runs on main so two merges landing close together can't both
+# reach mode-determination before either has tagged/published (murph,
+# review catch): without this, a second run could check out a commit that
+# still has no tag for the current package.json version and independently
+# decide PUBLISH mode for the same version as an in-flight first run. Not
+# cancel-in-progress — queues instead of dropping a run, since dropping a
+# release attempt is worse than a short wait.
+concurrency:
+  group: release-${{ github.ref }}
 
 permissions:
   contents: write
+  pull-requests: write
   packages: write
 
 jobs:
@@ -17,12 +64,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
         with:
-          node-version: 22
+          node-version: '22'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@wyre-ai'
 
@@ -35,8 +81,155 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Release
-        run: npx semantic-release
+      # Each of the three publish artifacts (tag, npm package, GitHub release)
+      # is checked independently rather than inferring all-or-nothing status
+      # from the tag alone (CodeRabbit catch, review of this PR: a transient
+      # npm-publish or gh-release failure after the tag push would otherwise
+      # strand the version forever — the next run sees the tag, calls it
+      # steady state, and never retries the artifacts that actually failed).
+      # This makes a rerun after a partial failure resume exactly the
+      # missing steps instead of silently skipping them.
+      - name: Determine mode (publish vs prepare)
+        id: mode
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git fetch --tags
+          VERSION=$(jq -r '.version' package.json)
+          PKG_NAME=$(jq -r '.name' package.json)
+
+          TAG_EXISTS=false
+          git rev-parse "v${VERSION}" >/dev/null 2>&1 && TAG_EXISTS=true
+
+          NPM_PUBLISHED=false
+          npm view "${PKG_NAME}@${VERSION}" version >/dev/null 2>&1 && NPM_PUBLISHED=true
+
+          RELEASE_EXISTS=false
+          gh release view "v${VERSION}" >/dev/null 2>&1 && RELEASE_EXISTS=true
+
+          if [ "$TAG_EXISTS" = true ] && [ "$NPM_PUBLISHED" = true ] && [ "$RELEASE_EXISTS" = true ]; then
+            echo "v${VERSION} fully published (tag+npm+release) — steady state."
+            echo "mode=prepare" >> "$GITHUB_OUTPUT"
+          else
+            echo "v${VERSION} not fully published (tag=${TAG_EXISTS} npm=${NPM_PUBLISHED} release=${RELEASE_EXISTS}) — publishing/resuming."
+            echo "mode=publish" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "tag_exists=${TAG_EXISTS}" >> "$GITHUB_OUTPUT"
+            echo "npm_published=${NPM_PUBLISHED}" >> "$GITHUB_OUTPUT"
+            echo "release_exists=${RELEASE_EXISTS}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # --- PUBLISH mode: package.json was already bumped by a merged release PR ---
+
+      - name: "Publish: tag"
+        if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.tag_exists == 'false'
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.mode.outputs.version }}"
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: "Publish: npm publish"
+        if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.npm_published == 'false'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm publish
+
+      - name: "Publish: create GitHub release"
+        if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.release_exists == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.mode.outputs.version }}"
+          gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+
+      # --- PREPARE mode: steady state, check for new releasable work ---
+
+      - name: "Prepare: compute next version and bump files"
+        if: steps.mode.outputs.mode == 'prepare'
+        id: prepare
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # @semantic-release/npm has npmPublish:true in .releaserc.json, so
+          # verifyConditions authenticates against the registry even under
+          # dryRun (CodeRabbit catch, first review round — the thread is
+          # marked outdated because release-prepare.yml was deleted in the
+          # single-workflow rewrite, not because the underlying auth gap was
+          # fixed there; it applies equally here).
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/prepare-release.mjs
+
+      # The default GITHUB_TOKEN can't create PRs on this org: WYRE-AI has
+      # "Allow GitHub Actions to create and approve pull requests" disabled
+      # org-wide (verified live, 2026-09-03: gh pr create with GITHUB_TOKEN
+      # failed with "GitHub Actions is not permitted to create or approve
+      # pull requests"; that's an org policy gating the github-actions[bot]
+      # identity specifically, not fixable per-repo — a repo-level attempt
+      # to loosen it 409s with "disabled by the organization"). A GitHub App
+      # installation token authenticates as a different identity and isn't
+      # subject to that restriction (verified live the same day: an
+      # App-token `gh pr create` against this exact repo succeeded, PR
+      # authored by app/wyre-agent-fleet). Used only for the `gh pr` calls
+      # below — `git push` keeps using actions/checkout's default credential,
+      # which was never the blocked operation.
+      - name: "Prepare: mint App token for PR creation"
+        if: steps.mode.outputs.mode == 'prepare' && steps.prepare.outputs.release_needed == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.WYRE_APP_ID }}
+          private-key: ${{ secrets.WYRE_APP_PRIVATE_KEY }}
+          # Least-privilege (CodeRabbit + zizmor catch): with no
+          # `repositories` input, `owner` alone scopes the token to every
+          # repo the App installation covers, not just this one. And
+          # without an explicit `permission-*`, the token inherits the
+          # App's FULL installation permission set rather than just what
+          # this step actually uses. Pin both down.
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-pull-requests: write
+          # Root cause of a live failure on node-crewhu (task_1788457898992):
+          # `gh pr create`/`gh pr view` internally query
+          # `repository.defaultBranchRef`, which needs `contents: read` --
+          # `metadata: read` (bundled into every App token automatically) is
+          # not enough. Reproduced directly against the GitHub API: a token
+          # scoped to metadata+pull_requests only gets
+          # "Resource not accessible by integration" on that field; adding
+          # contents:read fixes it. Read-only, so still least-privilege.
+          permission-contents: read
+
+      - name: "Prepare: open or update release PR"
+        if: steps.mode.outputs.mode == 'prepare' && steps.prepare.outputs.release_needed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B release/next
+          git add package.json package-lock.json CHANGELOG.md 2>/dev/null || git add package.json CHANGELOG.md
+          git commit -m "chore(release): ${VERSION}
+
+          Prepared by scripts/prepare-release.mjs. Merging this PR (any
+          merge method) triggers this workflow's PUBLISH mode, which tags,
+          publishes to npm, and creates the GitHub release — nothing
+          publishes until this merges."
+          git push --force origin release/next
+
+          if gh pr view release/next --json state --jq .state 2>/dev/null | grep -q OPEN; then
+            gh pr edit release/next --title "chore(release): ${VERSION}"
+            echo "Updated existing release PR."
+          else
+            gh pr create \
+              --base main \
+              --head release/next \
+              --title "chore(release): ${VERSION}" \
+              --body "Automated release PR. Merging this (any merge method) publishes ${VERSION} to npm and creates the GitHub release — see CHANGELOG.md in this diff for the notes."
+            echo "Opened new release PR."
+          fi
