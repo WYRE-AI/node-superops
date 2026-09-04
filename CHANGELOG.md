@@ -1,3 +1,14 @@
+# [3.1.0](https://github.com/WYRE-AI/node-superops/compare/v3.0.4...v3.1.0) (2026-09-04)
+
+
+### Features
+
+* **release:** use extracted CHANGELOG notes instead of --generate-notes ([#85](https://github.com/WYRE-AI/node-superops/issues/85)) ([f5f3ddc](https://github.com/WYRE-AI/node-superops/commit/f5f3ddc9ba8a768d7a6c3197275c0fedf359a57d)), closes [node-datto-rmm#77](https://github.com/node-datto-rmm/issues/77)
+
+
+
+
+
 ## [3.0.4](https://github.com/WYRE-AI/node-superops/compare/v3.0.3...v3.0.4) (2026-09-04)
 
 
