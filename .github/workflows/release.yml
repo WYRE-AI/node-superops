@@ -67,8 +67,10 @@ jobs:
           # CodeRabbit catch (CWE-250, task_1788457898992): the default
           # persisted credential would stay live through npm ci/build/test
           # below, so a compromised dependency's lifecycle script could
-          # misuse it to push. Re-authenticate explicitly, after those
-          # steps run, only for the git commands that actually need it.
+          # misuse it to push. Each git network call downstream instead
+          # authenticates individually via an inline `-c http.extraheader`
+          # (never written to .git/config — see the second CodeRabbit catch,
+          # CWE-522, at "Determine mode" below).
           persist-credentials: false
 
       - name: Setup Node.js
@@ -87,15 +89,6 @@ jobs:
       - name: Run tests
         run: npm test
 
-      # Re-authenticate AFTER the untrusted npm lifecycle (ci/build/test)
-      # has already run, so nothing during those steps can reach this
-      # credential. Every git command below this point (fetch --tags, the
-      # two `git push` calls) needs it -- restoring it once, here, keeps
-      # each of those call sites unchanged rather than repeating auth setup
-      # per push.
-      - name: Re-authenticate git for release operations
-        run: git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-
       # Each of the three publish artifacts (tag, npm package, GitHub release)
       # is checked independently rather than inferring all-or-nothing status
       # from the tag alone (CodeRabbit catch, review of this PR: a transient
@@ -104,6 +97,17 @@ jobs:
       # steady state, and never retries the artifacts that actually failed).
       # This makes a rerun after a partial failure resume exactly the
       # missing steps instead of silently skipping them.
+      #
+      # Git auth note (CodeRabbit, CWE-250 then CWE-522, task_1788457898992):
+      # persist-credentials is false on checkout above, and this step's own
+      # `git fetch --tags` is the first git network call after the untrusted
+      # npm lifecycle. A first pass re-authenticated via `git remote
+      # set-url`, but that WRITES the token into .git/config where any later
+      # process in the job could read it back off disk. Using a `-c
+      # http.extraheader` on the git invocation itself instead scopes the
+      # credential to that one command's process environment -- nothing
+      # persists to a file. Every git network call in this workflow uses
+      # this same inline pattern; none set the remote URL.
       - name: Determine mode (publish vs prepare)
         id: mode
         env:
@@ -111,7 +115,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          git fetch --tags
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          git -c http.extraheader="$AUTH_HEADER" fetch --tags
           VERSION=$(jq -r '.version' package.json)
           PKG_NAME=$(jq -r '.name' package.json)
 
@@ -140,11 +145,14 @@ jobs:
 
       - name: "Publish: tag"
         if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.tag_exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="${{ steps.mode.outputs.version }}"
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           git tag "v${VERSION}"
-          git push origin "v${VERSION}"
+          git -c http.extraheader="$AUTH_HEADER" push origin "v${VERSION}"
 
       - name: "Publish: npm publish"
         if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.npm_published == 'false'
@@ -188,8 +196,9 @@ jobs:
       # subject to that restriction (verified live the same day: an
       # App-token `gh pr create` against this exact repo succeeded, PR
       # authored by app/wyre-agent-fleet). Used only for the `gh pr` calls
-      # below — `git push` keeps using actions/checkout's default credential,
-      # which was never the blocked operation.
+      # below — `git push` authenticates separately with the default
+      # GITHUB_TOKEN via an inline http.extraheader (see PUSH_TOKEN below),
+      # since push was never the blocked operation.
       - name: "Prepare: mint App token for PR creation"
         if: steps.mode.outputs.mode == 'prepare' && steps.prepare.outputs.release_needed == 'true'
         id: app-token
@@ -220,6 +229,7 @@ jobs:
         if: steps.mode.outputs.mode == 'prepare' && steps.prepare.outputs.release_needed == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
           set -euo pipefail
@@ -235,7 +245,8 @@ jobs:
           merge method) triggers this workflow's PUBLISH mode, which tags,
           publishes to npm, and creates the GitHub release — nothing
           publishes until this merges."
-          git push --force origin release/next
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')"
+          git -c http.extraheader="$AUTH_HEADER" push --force origin release/next
 
           if gh pr view release/next --json state --jq .state 2>/dev/null | grep -q OPEN; then
             gh pr edit release/next --title "chore(release): ${VERSION}"
