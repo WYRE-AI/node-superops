@@ -1,3 +1,15 @@
+## [3.0.4](https://github.com/WYRE-AI/node-superops/compare/v3.0.3...v3.0.4) (2026-09-04)
+
+
+### Bug Fixes
+
+* **release:** restore persist-credentials:false, re-auth only for release ops ([#84](https://github.com/WYRE-AI/node-superops/issues/84)) ([0cf9581](https://github.com/WYRE-AI/node-superops/commit/0cf9581b2a4bfae678503b31f8eb0d469b7b346f))
+* **security:** resolve dependabot alerts via npm audit fix ([#81](https://github.com/WYRE-AI/node-superops/issues/81)) ([2fb01ee](https://github.com/WYRE-AI/node-superops/commit/2fb01eef92871a469fea48ee3e4303bd7572d6c6))
+
+
+
+
+
 ## [3.0.3](https://github.com/WYRE-AI/node-superops/compare/v3.0.2...v3.0.3) (2026-08-25)
 
 
