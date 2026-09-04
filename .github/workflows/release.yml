@@ -108,6 +108,13 @@ jobs:
       # credential to that one command's process environment -- nothing
       # persists to a file. Every git network call in this workflow uses
       # this same inline pattern; none set the remote URL.
+      #
+      # Also (CodeRabbit, CWE-319): every such call targets an explicit
+      # https://github.com/... URL rather than the `origin` remote name --
+      # if something upstream of this point ever rewrote origin's URL to an
+      # http:// scheme, using the remote name would silently send this
+      # Basic-auth header in cleartext. An explicit https:// URL can't be
+      # redirected that way.
       - name: Determine mode (publish vs prepare)
         id: mode
         env:
@@ -117,7 +124,7 @@ jobs:
           set -euo pipefail
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$AUTH_HEADER"
-          git -c http.extraheader="$AUTH_HEADER" fetch --tags
+          git -c http.extraheader="$AUTH_HEADER" fetch "https://github.com/${{ github.repository }}.git" --tags
           VERSION=$(jq -r '.version' package.json)
           PKG_NAME=$(jq -r '.name' package.json)
 
@@ -154,7 +161,7 @@ jobs:
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$AUTH_HEADER"
           git tag "v${VERSION}"
-          git -c http.extraheader="$AUTH_HEADER" push origin "v${VERSION}"
+          git -c http.extraheader="$AUTH_HEADER" push "https://github.com/${{ github.repository }}.git" "v${VERSION}"
 
       - name: "Publish: npm publish"
         if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.npm_published == 'false'
@@ -249,7 +256,7 @@ jobs:
           publishes until this merges."
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$AUTH_HEADER"
-          git -c http.extraheader="$AUTH_HEADER" push --force origin release/next
+          git -c http.extraheader="$AUTH_HEADER" push --force "https://github.com/${{ github.repository }}.git" release/next
 
           if gh pr view release/next --json state --jq .state 2>/dev/null | grep -q OPEN; then
             gh pr edit release/next --title "chore(release): ${VERSION}"
