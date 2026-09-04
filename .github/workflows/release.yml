@@ -116,6 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$AUTH_HEADER"
           git -c http.extraheader="$AUTH_HEADER" fetch --tags
           VERSION=$(jq -r '.version' package.json)
           PKG_NAME=$(jq -r '.name' package.json)
@@ -151,6 +152,7 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.mode.outputs.version }}"
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$AUTH_HEADER"
           git tag "v${VERSION}"
           git -c http.extraheader="$AUTH_HEADER" push origin "v${VERSION}"
 
@@ -246,6 +248,7 @@ jobs:
           publishes to npm, and creates the GitHub release — nothing
           publishes until this merges."
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$AUTH_HEADER"
           git -c http.extraheader="$AUTH_HEADER" push --force origin release/next
 
           if gh pr view release/next --json state --jq .state 2>/dev/null | grep -q OPEN; then
