@@ -73,7 +73,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "graphql": "^16.14.2",
+    "graphql": "^17.0.2",
     "graphql-request": "^7.1.2"
   }
 }
