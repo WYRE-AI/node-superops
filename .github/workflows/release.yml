@@ -64,6 +64,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
+          # CodeRabbit catch (CWE-250, task_1788457898992): the default
+          # persisted credential would stay live through npm ci/build/test
+          # below, so a compromised dependency's lifecycle script could
+          # misuse it to push. Re-authenticate explicitly, after those
+          # steps run, only for the git commands that actually need it.
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
@@ -80,6 +86,15 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      # Re-authenticate AFTER the untrusted npm lifecycle (ci/build/test)
+      # has already run, so nothing during those steps can reach this
+      # credential. Every git command below this point (fetch --tags, the
+      # two `git push` calls) needs it -- restoring it once, here, keeps
+      # each of those call sites unchanged rather than repeating auth setup
+      # per push.
+      - name: Re-authenticate git for release operations
+        run: git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
 
       # Each of the three publish artifacts (tag, npm package, GitHub release)
       # is checked independently rather than inferring all-or-nothing status
