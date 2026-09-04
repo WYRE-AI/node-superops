@@ -169,6 +169,13 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm publish
 
+      # Uses the same curated notes semantic-release already committed to
+      # CHANGELOG.md during PREPARE mode, instead of GitHub's --generate-notes
+      # auto-summary (CodeRabbit catch, task_1788457898992: the two diverge in
+      # content). scripts/extract-release-notes.mjs FAILS OPEN by design
+      # (boss's requirement) -- any read/parse failure or an empty section
+      # exits 1, and this step falls back to --generate-notes rather than
+      # ever blocking a publish over a cosmetic notes gap.
       - name: "Publish: create GitHub release"
         if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.release_exists == 'false'
         env:
@@ -176,7 +183,14 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.mode.outputs.version }}"
-          gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+          NOTES_FILE="$(mktemp)"
+          if node scripts/extract-release-notes.mjs "${VERSION}" > "${NOTES_FILE}" && [ -s "${NOTES_FILE}" ]; then
+            echo "Using extracted CHANGELOG.md notes for v${VERSION}."
+            gh release create "v${VERSION}" --title "v${VERSION}" --notes-file "${NOTES_FILE}"
+          else
+            echo "::warning::extract-release-notes.mjs failed or produced empty output for v${VERSION} -- falling back to --generate-notes"
+            gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+          fi
 
       # --- PREPARE mode: steady state, check for new releasable work ---
 
