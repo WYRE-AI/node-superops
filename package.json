@@ -75,5 +75,10 @@
   "dependencies": {
     "graphql": "^16.14.2",
     "graphql-request": "^7.1.2"
+  },
+  "overrides": {
+    "cosmiconfig": {
+      "js-yaml": "^4.3.2"
+    }
   }
 }
