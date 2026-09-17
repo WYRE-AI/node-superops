@@ -1,3 +1,14 @@
+## [3.1.1](https://github.com/WYRE-AI/node-superops/compare/v3.1.0...v3.1.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **deps:** resolve js-yaml CVE-2026-84375 ([#89](https://github.com/WYRE-AI/node-superops/issues/89)) ([5f0c234](https://github.com/WYRE-AI/node-superops/commit/5f0c23459943bf9a93812a94dd8a78f18e543a82))
+
+
+
+
+
 # [3.1.0](https://github.com/WYRE-AI/node-superops/compare/v3.0.4...v3.1.0) (2026-09-04)
 
 
