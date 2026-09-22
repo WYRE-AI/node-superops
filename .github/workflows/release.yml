@@ -124,7 +124,7 @@ jobs:
           set -euo pipefail
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$AUTH_HEADER"
-          git -c http.extraheader="$AUTH_HEADER" fetch "https://github.com/${{ github.repository }}.git" --tags
+          git -c http.extraheader="$AUTH_HEADER" -c http.followRedirects=false fetch "https://github.com/${{ github.repository }}.git" --tags
           VERSION=$(jq -r '.version' package.json)
           PKG_NAME=$(jq -r '.name' package.json)
 
@@ -161,7 +161,7 @@ jobs:
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$AUTH_HEADER"
           git tag "v${VERSION}"
-          git -c http.extraheader="$AUTH_HEADER" push "https://github.com/${{ github.repository }}.git" "v${VERSION}"
+          git -c http.extraheader="$AUTH_HEADER" -c http.followRedirects=false push "https://github.com/${{ github.repository }}.git" "v${VERSION}"
 
       - name: "Publish: npm publish"
         if: steps.mode.outputs.mode == 'publish' && steps.mode.outputs.npm_published == 'false'
@@ -270,7 +270,7 @@ jobs:
           publishes until this merges."
           AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 | tr -d '\n')"
           echo "::add-mask::$AUTH_HEADER"
-          git -c http.extraheader="$AUTH_HEADER" push --force "https://github.com/${{ github.repository }}.git" release/next
+          git -c http.extraheader="$AUTH_HEADER" -c http.followRedirects=false push --force "https://github.com/${{ github.repository }}.git" release/next
 
           if gh pr view release/next --json state --jq .state 2>/dev/null | grep -q OPEN; then
             gh pr edit release/next --title "chore(release): ${VERSION}"
