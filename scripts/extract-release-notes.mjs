@@ -39,8 +39,16 @@ try {
 // swallowed all of the following 2.0.0 section, including its BREAKING
 // CHANGES block, into 2.0.1's "notes"). Match 1 or 2 leading '#'s so both
 // heading levels are recognized as section boundaries.
+//
+// A FIRST release's heading has no compare link at all (no prior tag to
+// diff against), e.g. this repo's own CHANGELOG.md: `# 1.0.0 (2026-08-13)`
+// -- no brackets (CodeRabbit catch on PR #52, verified against this exact
+// file). The unbracketed form must still be recognized as both a possible
+// match AND a section-boundary, or an unbracketed heading is invisible to
+// the loop and gets silently swallowed into the preceding section, same
+// failure shape as the missing-'#'-level bug above.
 const lines = changelog.split('\n');
-const headingRe = /^#{1,2} \[([^\]]+)\]/;
+const headingRe = /^#{1,2} \[?([^\]\s(]+)\]?/;
 let start = -1;
 let end = lines.length;
 

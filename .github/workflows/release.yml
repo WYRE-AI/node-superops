@@ -218,10 +218,21 @@ jobs:
       # installation token authenticates as a different identity and isn't
       # subject to that restriction (verified live the same day: an
       # App-token `gh pr create` against this exact repo succeeded, PR
-      # authored by app/wyre-agent-fleet). Used only for the `gh pr` calls
-      # below — `git push` authenticates separately with the default
-      # GITHUB_TOKEN via an inline http.extraheader (see PUSH_TOKEN below),
-      # since push was never the blocked operation.
+      # authored by app/wyre-agent-fleet).
+      #
+      # Also used for the `git push` itself (CodeRabbit finding, #52),
+      # correcting an earlier version of this comment that reasoned push
+      # only needed GITHUB_TOKEN because "push was never the blocked
+      # operation" — true for the push's own permission, but incomplete: a
+      # push authenticated by GITHUB_TOKEN does not trigger OTHER workflow
+      # runs (GitHub's documented loop-prevention behavior), including the
+      # `pull_request: synchronize` event a PR-triggered required-CI
+      # workflow listens for. The first push (opening a brand-new PR) is
+      # fine either way, since "opened" is fired by the App-token `gh pr
+      # create` call itself, not by the push — but a LATER re-preparation
+      # that force-pushes to an ALREADY-OPEN release/next PR would silently
+      # never re-trigger required CI on the new commits. Using the App
+      # token for the push closes that gap.
       - name: "Prepare: mint App token for PR creation"
         if: steps.mode.outputs.mode == 'prepare' && steps.prepare.outputs.release_needed == 'true'
         id: app-token
@@ -238,21 +249,21 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
           permission-pull-requests: write
-          # Root cause of a live failure on node-crewhu (task_1788457898992):
-          # `gh pr create`/`gh pr view` internally query
+          # contents:write (not just read) because this token now also
+          # performs the git push below, not just the gh pr create/edit
+          # calls. Root cause of the earlier read-only choice: `gh pr
+          # create`/`gh pr view` internally query
           # `repository.defaultBranchRef`, which needs `contents: read` --
           # `metadata: read` (bundled into every App token automatically) is
-          # not enough. Reproduced directly against the GitHub API: a token
-          # scoped to metadata+pull_requests only gets
-          # "Resource not accessible by integration" on that field; adding
-          # contents:read fixes it. Read-only, so still least-privilege.
-          permission-contents: read
+          # not enough (live failure on node-crewhu, task_1788457898992).
+          # write is a superset, so this still covers that case.
+          permission-contents: write
 
       - name: "Prepare: open or update release PR"
         if: steps.mode.outputs.mode == 'prepare' && steps.prepare.outputs.release_needed == 'true'
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUSH_TOKEN: ${{ steps.app-token.outputs.token }}
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
           set -euo pipefail
