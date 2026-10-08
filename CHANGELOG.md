@@ -1,3 +1,15 @@
+## [3.1.2](https://github.com/WYRE-AI/node-superops/compare/v3.1.1...v3.1.2) (2026-10-08)
+
+
+### Bug Fixes
+
+* **release:** disable http.followRedirects on authenticated git commands ([#91](https://github.com/WYRE-AI/node-superops/issues/91)) ([8f18c00](https://github.com/WYRE-AI/node-superops/commit/8f18c00916011abcd3b563abe57d5ee00ebaa06c))
+* **release:** push release/next with App token + recognize unbracketed CHANGELOG headings ([#96](https://github.com/WYRE-AI/node-superops/issues/96)) ([9f1d13a](https://github.com/WYRE-AI/node-superops/commit/9f1d13ace53f3230eb5ca8208028d8e70c7b6cba)), closes [WYRE-AI/node-domotz#52](https://github.com/WYRE-AI/node-domotz/issues/52)
+
+
+
+
+
 ## [3.1.1](https://github.com/WYRE-AI/node-superops/compare/v3.1.0...v3.1.1) (2026-09-15)
 
 
