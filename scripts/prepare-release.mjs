@@ -27,6 +27,7 @@
 import semanticRelease from "semantic-release";
 import { readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 export function insertReleaseNotes(notes, existing) {
   if (!existing) {
@@ -98,6 +99,13 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Compare as filesystem paths, not as import.meta.url vs. a naively
+// file://-prefixed argv[1] -- import.meta.url is URL-encoded (a space
+// becomes %20, a # becomes %23), so a checkout path containing either
+// would make the naive string comparison fail silently and never invoke
+// main() at all. fileURLToPath decodes it back to a real path first.
+// (CodeRabbit catch, fleet-wide changelogTitle sweep -- caught on CI's own
+// checkout path shape being safe today, not on this ever having failed.)
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   await main();
 }
