@@ -1,3 +1,14 @@
+## [3.1.3](https://github.com/WYRE-AI/node-superops/compare/v3.1.2...v3.1.3) (2026-10-13)
+
+
+### Bug Fixes
+
+* **dependabot:** ungroup msw/vitest majors from auto-merged dev-dependencies ([#100](https://github.com/WYRE-AI/node-superops/issues/100)) ([8d962e8](https://github.com/WYRE-AI/node-superops/commit/8d962e875098498b5750affe12baf70cd9c677e1))
+
+
+
+
+
 ## [3.1.2](https://github.com/WYRE-AI/node-superops/compare/v3.1.1...v3.1.2) (2026-10-08)
 
 
