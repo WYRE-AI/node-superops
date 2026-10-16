@@ -1,3 +1,12 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
 ## [3.1.2](https://github.com/WYRE-AI/node-superops/compare/v3.1.1...v3.1.2) (2026-10-08)
 
 
@@ -143,15 +152,6 @@ Page<Asset> instead of a cursor Connection.
 
 * Add semantic-release for GitHub Packages publishing ([6221a7f](https://github.com/asachs01/node-superops/commit/6221a7f61c8b689b240b0fe33f242228b24605dc))
 * Initial release of node-superops TypeScript library ([443c430](https://github.com/asachs01/node-superops/commit/443c43094ca61eecf3e22489eed161a4d441f695))
-
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
 
 ## [0.1.0] - 2026-02-04
 
